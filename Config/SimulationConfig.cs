@@ -17,5 +17,6 @@ namespace LivingSim.Config
         public int DelayAdjustmentStepMs { get; init; } = 10;
 
         public int PopulationHistoryLength { get; init; } = 60;
+        public bool RenderMetricsToConsole { get; init; } = true;
     }
 }

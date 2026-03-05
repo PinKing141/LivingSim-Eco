@@ -1,7 +1,6 @@
 using LivingSim.World;
 using LivingSim.Environment;
 using LivingSim.Observation;
-using LivingSim.Core; // Added for Season enum
 
 namespace LivingSim.Core
 {
@@ -37,8 +36,6 @@ namespace LivingSim.Core
         /// </summary>
         public void Tick()
         {
-            long previousTick = Clock.CurrentTick;
-
             // 1. Advance clock
             Clock.AdvanceTick();
 
@@ -50,7 +47,6 @@ namespace LivingSim.Core
 
             // 4. Collect metrics
             _metrics.CollectMetrics(WorldGrid, Clock);
-            _metrics.PrintMetrics(Clock.CurrentTick);
         }
     }
 }

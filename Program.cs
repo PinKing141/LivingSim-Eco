@@ -24,8 +24,10 @@ class Program
         var grid = new Grid(width: config.WorldWidth, height: config.WorldHeight);
         var environment = new EnvironmentTickSystem();
         var metrics = new MetricsCollector();
-        var animals = new AnimalManager(grid.Width, grid.Height, random);
+        var idGenerator = new DeterministicIdGenerator(config.RandomSeed);
+        var animals = new AnimalManager(grid.Width, grid.Height, random, idGenerator);
         var visualizer = new ConsoleVisualizer();
+        var metricsRenderer = new ConsoleMetricsRenderer();
 
         // ----------------------------
         // 2. Generate world
@@ -95,6 +97,10 @@ class Program
                     .ToDictionary(g => g.Key, g => g.Count());
                 history.Add(currentStats);
                 if (history.Count > config.PopulationHistoryLength) history.RemoveAt(0);
+                if (config.RenderMetricsToConsole)
+                {
+                    metricsRenderer.Render(metrics.CurrentSnapshot);
+                }
 
                 Thread.Sleep(simulationDelay);
                 i++;

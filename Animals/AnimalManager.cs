@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using LivingSim.World;
 using LivingSim.Core;
 using LivingSim.Animals;
@@ -12,6 +13,7 @@ namespace LivingSim.Environment
         private readonly int _width;
         private readonly int _height;
         private readonly Random _random;
+        private readonly DeterministicIdGenerator _idGenerator;
 
         private readonly int _plagueCheckInterval;
         private readonly float _plagueThresholdRatio;
@@ -24,6 +26,7 @@ namespace LivingSim.Environment
             int width,
             int height,
             Random random,
+            DeterministicIdGenerator idGenerator,
             int plagueCheckInterval = 100,
             float plagueThresholdRatio = 0.20f,
             float plagueChance = 0.05f,
@@ -32,13 +35,14 @@ namespace LivingSim.Environment
             _width = width;
             _height = height;
             _random = random;
+            _idGenerator = idGenerator;
             _plagueCheckInterval = plagueCheckInterval;
             _plagueThresholdRatio = plagueThresholdRatio;
             _plagueChance = plagueChance;
             _plagueMortalityRate = plagueMortalityRate;
         }
 
-        public void SpawnAnimal(AnimalType type, int x, int y)
+        public void SpawnAnimal(AnimalType type, int x, int y, long currentTick = 0)
         {
             if (x < 0 || x >= _width || y < 0 || y >= _height)
                 return;
@@ -51,7 +55,7 @@ namespace LivingSim.Environment
                 _ => throw new ArgumentOutOfRangeException(nameof(type), "Unknown AnimalType for species assignment.")
             };
 
-            _animals.Add(new Animal(species, x, y, _random));
+            _animals.Add(new Animal(species, x, y, _random, _idGenerator, currentTick));
         }
 
         public void Tick(Grid grid, long currentTick, bool isNight, Season currentSeason)
@@ -68,7 +72,7 @@ namespace LivingSim.Environment
                 }
             }
 
-            HandleSocialDynamics(animalsThisTick);
+            HandleSocialDynamics(animalsThisTick, currentTick);
 
             for (int i = 0; i < animalsThisTick.Count; i++)
             {
@@ -174,7 +178,7 @@ namespace LivingSim.Environment
             return count;
         }
 
-        private void HandleSocialDynamics(List<Animal> animalsThisTick)
+        private void HandleSocialDynamics(List<Animal> animalsThisTick, long currentTick)
         {
             var groups = new Dictionary<Guid, List<Animal>>();
             for (int i = 0; i < animalsThisTick.Count; i++)
@@ -189,7 +193,7 @@ namespace LivingSim.Environment
                 list.Add(animal);
             }
 
-            foreach (var kvp in groups)
+            foreach (var kvp in groups.OrderBy(kvp => kvp.Key))
             {
                 var group = kvp.Value;
                 if (group.Count <= Animal.MaxGroupSize) continue;
@@ -213,7 +217,7 @@ namespace LivingSim.Environment
                 Animal? closestRepresentative = null;
                 double closestDistance = double.MaxValue;
 
-                foreach (var other in groups)
+                foreach (var other in groups.OrderBy(other => other.Key))
                 {
                     if (other.Key == expellee.GroupId || other.Value.Count >= Animal.MaxGroupSize || other.Value.Count == 0) continue;
                     if (other.Value[0].Species != expellee.Species) continue;
@@ -244,7 +248,7 @@ namespace LivingSim.Environment
                 }
                 else
                 {
-                    expellee.LeaveGroup();
+                    expellee.LeaveGroup(currentTick);
                 }
             }
         }

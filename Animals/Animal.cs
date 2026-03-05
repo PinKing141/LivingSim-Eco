@@ -80,13 +80,15 @@ namespace LivingSim.Animals
         public bool IsConsumed { get; private set; }
         public float CarcassFoodValue { get; private set; }
         private readonly Random _random;
+        private readonly DeterministicIdGenerator _idGenerator;
         public int Age { get; private set; }
         public bool IsAlive { get; private set; } = true;
 
         // Constructor for initial spawning
-        public Animal(Species species, int x, int y, Random random)
+        public Animal(Species species, int x, int y, Random random, DeterministicIdGenerator idGenerator, long currentTick)
         {
             _random = random;
+            _idGenerator = idGenerator;
             Species = species;
             X = x;
             Y = y;
@@ -103,7 +105,7 @@ namespace LivingSim.Animals
 
             DenX = x; // The founding location is the first den.
             DenY = y;
-            GroupId = Guid.NewGuid(); // A newly spawned animal founds a new group
+            GroupId = _idGenerator.NextGuid(currentTick); // A newly spawned animal founds a new group
             IsHibernating = false;
             Stamina = MaxStamina;
             Health = MaxHealth;
@@ -113,6 +115,7 @@ namespace LivingSim.Animals
         private Animal(Animal parent, Random random)
         {
             _random = random;
+            _idGenerator = parent._idGenerator;
             Species = parent.Species; // Offspring inherit the parent's species
             Type = parent.Type;
             X = parent.X;
@@ -1412,10 +1415,10 @@ namespace LivingSim.Animals
         /// <summary>
         /// Forces the animal to leave its current social group and form a new one.
         /// </summary>
-        public void LeaveGroup()
+        public void LeaveGroup(long currentTick)
         {
             // The animal becomes the founder of a new group.
-            GroupId = Guid.NewGuid();
+            GroupId = _idGenerator.NextGuid(currentTick);
             DenX = this.X; // Its current location becomes the new den.
             DenY = this.Y;
         }
