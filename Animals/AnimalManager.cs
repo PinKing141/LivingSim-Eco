@@ -13,17 +13,29 @@ namespace LivingSim.Environment
         private readonly int _height;
         private readonly Random _random;
 
-        // Plague Settings
-        private const int PlagueCheckInterval = 100;
-        private const float PlagueThresholdRatio = 0.20f;
-        private const float PlagueChance = 0.05f;
-        private const float PlagueMortalityRate = 0.4f;
+        private readonly int _plagueCheckInterval;
+        private readonly float _plagueThresholdRatio;
+        private readonly float _plagueChance;
+        private readonly float _plagueMortalityRate;
 
-        public AnimalManager(int width, int height, Random random)
+        public int PlagueEventsTriggered { get; private set; }
+
+        public AnimalManager(
+            int width,
+            int height,
+            Random random,
+            int plagueCheckInterval = 100,
+            float plagueThresholdRatio = 0.20f,
+            float plagueChance = 0.05f,
+            float plagueMortalityRate = 0.4f)
         {
             _width = width;
             _height = height;
             _random = random;
+            _plagueCheckInterval = plagueCheckInterval;
+            _plagueThresholdRatio = plagueThresholdRatio;
+            _plagueChance = plagueChance;
+            _plagueMortalityRate = plagueMortalityRate;
         }
 
         public void SpawnAnimal(AnimalType type, int x, int y)
@@ -118,7 +130,7 @@ namespace LivingSim.Environment
                 }
             }
 
-            if (currentTick % PlagueCheckInterval == 0)
+            if (currentTick % _plagueCheckInterval == 0)
             {
                 HandlePlagueEvents();
             }
@@ -251,7 +263,7 @@ namespace LivingSim.Environment
             int mapArea = _width * _height;
             foreach (var kvp in speciesCounts)
             {
-                if (kvp.Value > mapArea * PlagueThresholdRatio && _random.NextDouble() < PlagueChance)
+                if (kvp.Value > mapArea * _plagueThresholdRatio && _random.NextDouble() < _plagueChance)
                 {
                     TriggerPlague(kvp.Key);
                 }
@@ -270,7 +282,8 @@ namespace LivingSim.Environment
                 }
             }
 
-            int killCount = (int)(targets.Count * PlagueMortalityRate);
+            int killCount = (int)(targets.Count * _plagueMortalityRate);
+            PlagueEventsTriggered++;
             targets.Sort((a, b) =>
             {
                 int healthCompare = a.Health.CompareTo(b.Health);
