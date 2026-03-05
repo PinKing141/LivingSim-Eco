@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using LivingSim.World;
-using LivingSim.Core; 
-using LivingSim.Animals; // <--- ADDED THIS
+using LivingSim.Core;
+using LivingSim.Animals;
 
 namespace LivingSim.Environment
 {
@@ -15,10 +14,10 @@ namespace LivingSim.Environment
         private readonly Random _random;
 
         // Plague Settings
-        private const int PlagueCheckInterval = 100; // Check every 100 ticks
-        private const float PlagueThresholdRatio = 0.20f; // Species is overpopulated if > 20% of map area
-        private const float PlagueChance = 0.05f; // 5% chance to trigger plague if overpopulated
-        private const float PlagueMortalityRate = 0.4f; // Wipes out 40% of the population
+        private const int PlagueCheckInterval = 100;
+        private const float PlagueThresholdRatio = 0.20f;
+        private const float PlagueChance = 0.05f;
+        private const float PlagueMortalityRate = 0.4f;
 
         public AnimalManager(int width, int height, Random random)
         {
@@ -31,8 +30,7 @@ namespace LivingSim.Environment
         {
             if (x < 0 || x >= _width || y < 0 || y >= _height)
                 return;
-            
-            // Randomly assign a species based on the AnimalType
+
             Species species = type switch
             {
                 AnimalType.Herbivore => _random.NextDouble() < 0.5 ? Species.Deer : Species.Rabbit,
@@ -46,159 +44,243 @@ namespace LivingSim.Environment
 
         public void Tick(Grid grid, long currentTick, bool isNight, Season currentSeason)
         {
-            var animalsThisTick = _animals.ToList(); 
+            var animalsThisTick = new List<Animal>(_animals);
+            EnsureGridRegistrations(grid, animalsThisTick);
 
-            // 1. All animals move.
-            foreach (var animal in animalsThisTick)
+            for (int i = 0; i < animalsThisTick.Count; i++)
             {
+                var animal = animalsThisTick[i];
                 if (animal.IsAlive)
                 {
                     animal.Move(grid, animalsThisTick, currentTick, isNight, currentSeason);
                 }
             }
 
-            // 2. Social Dynamics: Expel members from oversized groups.
-            var groups = animalsThisTick.Where(a => a.IsAlive).GroupBy(a => a.GroupId);
-            foreach (var group in groups)
-            {
-                if (group.Count() > Animal.MaxGroupSize)
-                {
-                    var expellee = group
-                        .Where(a => a.Age >= Animal.MinReproductionAge && !a.IsHibernating)
-                        .OrderBy(a => a.Age)
-                        .FirstOrDefault();
+            HandleSocialDynamics(animalsThisTick);
 
-                    if (expellee != null)
-                    {
-                        var potentialNewGroups = groups
-                            .Where(g => g.Key != expellee.GroupId) 
-                            .Where(g => g.First().Species == expellee.Species) 
-                            .Where(g => g.Count() < Animal.MaxGroupSize) 
-                            .Select(g => new { Group = g, CenterX = g.Average(m => m.X), CenterY = g.Average(m => m.Y) }) 
-                            .ToList();
-                        
-                        if (potentialNewGroups.Any())
-                        {
-                            var closestGroup = potentialNewGroups
-                                .OrderBy(g => Math.Pow(expellee.X - g.CenterX, 2) + Math.Pow(expellee.Y - g.CenterY, 2))
-                                .First();
-                            
-                            var newGroup = closestGroup.Group;
-                            expellee.JoinGroup(newGroup.Key);
-                            expellee.SetDen(newGroup.First().DenX, newGroup.First().DenY);
-                        }
-                        else
-                        {
-                            expellee.LeaveGroup();
-                        }
-                    }
+            for (int i = 0; i < animalsThisTick.Count; i++)
+            {
+                var animal = animalsThisTick[i];
+                if (!animal.IsAlive || animal.Type == AnimalType.Herbivore) continue;
+                var cell = grid.GetCell(animal.X, animal.Y);
+                if (cell != null && cell.Residents.Count > 1)
+                {
+                    animal.Hunt(cell.Residents, grid);
                 }
             }
 
-            // 3. Aggressive animals hunt for prey or defend territory.
-            var allAnimalLocations = animalsThisTick
-                .GroupBy(a => (a.X, a.Y))
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            var aggressiveAnimals = animalsThisTick.Where(a => a.IsAlive && a.Type != AnimalType.Herbivore);
-            foreach (var animal in aggressiveAnimals)
+            for (int i = 0; i < animalsThisTick.Count; i++)
             {
-                if (allAnimalLocations.TryGetValue((animal.X, animal.Y), out var cellMates) && cellMates.Count > 1)
+                var animal = animalsThisTick[i];
+                if (!animal.IsAlive) continue;
+                var cell = grid.GetCell(animal.X, animal.Y);
+                if (cell != null)
                 {
-                    animal.Hunt(cellMates, grid);
+                    animal.EatAndAge(cell, cell.Residents, grid);
                 }
             }
 
-            // 4. All animals eat (plants), age, and metabolize.
-            foreach (var animal in animalsThisTick)
-            {
-                if (animal.IsAlive) 
-                {
-                    allAnimalLocations.TryGetValue((animal.X, animal.Y), out var cellMates);
-                    animal.EatAndAge(grid.GetCell(animal.X, animal.Y), cellMates ?? new List<Animal>(), grid);
-                }
-            }
-
-            // 5. Animals reproduce if conditions are met.
             var newborns = new List<Animal>();
-            foreach (var animal in animalsThisTick)
+            for (int i = 0; i < animalsThisTick.Count; i++)
             {
-                int nearbySameSpecies = 0;
-                for (int dx = -1; dx <= 1; dx++)
-                {
-                    for (int dy = -1; dy <= 1; dy++)
-                    {
-                        if (allAnimalLocations.TryGetValue((animal.X + dx, animal.Y + dy), out var neighbors))
-                        {
-                            nearbySameSpecies += neighbors.Count(n => n.Species == animal.Species && n.IsAlive);
-                        }
-                    }
-                }
+                var animal = animalsThisTick[i];
+                int nearbySameSpecies = CountNearbySameSpecies(grid, animal);
 
                 if (!animal.IsCrowded(nearbySameSpecies) && animal.IsReadyToReproduce() && _random.NextDouble() < (Animal.BaseReproductionChance * animal.Fertility))
                 {
-                    newborns.AddRange(animal.CreateOffspring(_random)); 
+                    newborns.AddRange(animal.CreateOffspring(_random));
                 }
             }
 
-            _animals.AddRange(newborns);
-
-            // 6. Decay carcasses that are not fully eaten.
-            foreach (var animal in animalsThisTick.Where(a => !a.IsAlive))
+            for (int i = 0; i < newborns.Count; i++)
             {
-                animal.DecayCarcass();
+                var newborn = newborns[i];
+                _animals.Add(newborn);
+                grid.RegisterAnimal(newborn);
             }
 
-            // 7. Remove all dead and fully consumed/decayed animals from the simulation.
-            _animals.RemoveAll(animal => !animal.IsAlive && animal.CarcassFoodValue <= 0);
+            for (int i = 0; i < animalsThisTick.Count; i++)
+            {
+                var animal = animalsThisTick[i];
+                if (!animal.IsAlive)
+                {
+                    animal.DecayCarcass();
+                }
+            }
 
-            // 8. Occasional Plague Event
+            for (int i = _animals.Count - 1; i >= 0; i--)
+            {
+                var animal = _animals[i];
+                if (!animal.IsAlive && animal.CarcassFoodValue <= 0)
+                {
+                    grid.UnregisterAnimal(animal);
+                    _animals.RemoveAt(i);
+                }
+            }
+
             if (currentTick % PlagueCheckInterval == 0)
             {
                 HandlePlagueEvents();
             }
         }
 
-        public IReadOnlyList<Animal> GetAnimals()
+        public IReadOnlyList<Animal> GetAnimals() => _animals;
+
+        private void EnsureGridRegistrations(Grid grid, List<Animal> animals)
         {
-            return _animals;
+            for (int i = 0; i < animals.Count; i++)
+            {
+                var a = animals[i];
+                var cell = grid.GetCell(a.X, a.Y);
+                if (cell != null && !cell.Residents.Contains(a))
+                {
+                    grid.RegisterAnimal(a);
+                }
+            }
+        }
+
+        private int CountNearbySameSpecies(Grid grid, Animal animal)
+        {
+            int count = 0;
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    var neighborsCell = grid.GetCell(animal.X + dx, animal.Y + dy);
+                    if (neighborsCell == null) continue;
+                    var residents = neighborsCell.Residents;
+                    for (int i = 0; i < residents.Count; i++)
+                    {
+                        var neighbor = residents[i];
+                        if (neighbor.IsAlive && neighbor.Species == animal.Species)
+                        {
+                            count++;
+                        }
+                    }
+                }
+            }
+            return count;
+        }
+
+        private void HandleSocialDynamics(List<Animal> animalsThisTick)
+        {
+            var groups = new Dictionary<Guid, List<Animal>>();
+            for (int i = 0; i < animalsThisTick.Count; i++)
+            {
+                var animal = animalsThisTick[i];
+                if (!animal.IsAlive) continue;
+                if (!groups.TryGetValue(animal.GroupId, out var list))
+                {
+                    list = new List<Animal>();
+                    groups[animal.GroupId] = list;
+                }
+                list.Add(animal);
+            }
+
+            foreach (var kvp in groups)
+            {
+                var group = kvp.Value;
+                if (group.Count <= Animal.MaxGroupSize) continue;
+
+                Animal? expellee = null;
+                for (int i = 0; i < group.Count; i++)
+                {
+                    var candidate = group[i];
+                    if (candidate.Age >= Animal.MinReproductionAge && !candidate.IsHibernating)
+                    {
+                        if (expellee == null || candidate.Age < expellee.Age)
+                        {
+                            expellee = candidate;
+                        }
+                    }
+                }
+
+                if (expellee == null) continue;
+
+                Guid closestGroupId = Guid.Empty;
+                Animal? closestRepresentative = null;
+                double closestDistance = double.MaxValue;
+
+                foreach (var other in groups)
+                {
+                    if (other.Key == expellee.GroupId || other.Value.Count >= Animal.MaxGroupSize || other.Value.Count == 0) continue;
+                    if (other.Value[0].Species != expellee.Species) continue;
+
+                    double sumX = 0;
+                    double sumY = 0;
+                    for (int i = 0; i < other.Value.Count; i++)
+                    {
+                        sumX += other.Value[i].X;
+                        sumY += other.Value[i].Y;
+                    }
+
+                    double centerX = sumX / other.Value.Count;
+                    double centerY = sumY / other.Value.Count;
+                    double distSq = Math.Pow(expellee.X - centerX, 2) + Math.Pow(expellee.Y - centerY, 2);
+                    if (distSq < closestDistance)
+                    {
+                        closestDistance = distSq;
+                        closestGroupId = other.Key;
+                        closestRepresentative = other.Value[0];
+                    }
+                }
+
+                if (closestRepresentative != null)
+                {
+                    expellee.JoinGroup(closestGroupId);
+                    expellee.SetDen(closestRepresentative.DenX, closestRepresentative.DenY);
+                }
+                else
+                {
+                    expellee.LeaveGroup();
+                }
+            }
         }
 
         private void HandlePlagueEvents()
         {
-            var speciesCounts = _animals.Where(a => a.IsAlive)
-                                        .GroupBy(a => a.Species)
-                                        .ToDictionary(g => g.Key, g => g.Count());
-            
-            int mapArea = _width * _height;
+            var speciesCounts = new Dictionary<Species, int>();
+            for (int i = 0; i < _animals.Count; i++)
+            {
+                var animal = _animals[i];
+                if (!animal.IsAlive) continue;
+                speciesCounts.TryGetValue(animal.Species, out int count);
+                speciesCounts[animal.Species] = count + 1;
+            }
 
+            int mapArea = _width * _height;
             foreach (var kvp in speciesCounts)
             {
-                Species species = kvp.Key;
-                int count = kvp.Value;
-
-                if (count > mapArea * PlagueThresholdRatio)
+                if (kvp.Value > mapArea * PlagueThresholdRatio && _random.NextDouble() < PlagueChance)
                 {
-                    if (_random.NextDouble() < PlagueChance)
-                    {
-                        TriggerPlague(species);
-                    }
+                    TriggerPlague(kvp.Key);
                 }
             }
         }
 
         private void TriggerPlague(Species species)
         {
-            var targets = _animals.Where(a => a.IsAlive && a.Species == species).ToList();
-            int killCount = (int)(targets.Count * PlagueMortalityRate);
-
-            var victims = targets.OrderBy(a => a.Health)
-                                 .ThenByDescending(a => a.Age)
-                                 .Take(killCount);
-
-            foreach (var victim in victims)
+            var targets = new List<Animal>();
+            for (int i = 0; i < _animals.Count; i++)
             {
-                victim.TakeDamage(victim.MaxHealth * 2, null); 
+                var animal = _animals[i];
+                if (animal.IsAlive && animal.Species == species)
+                {
+                    targets.Add(animal);
+                }
+            }
+
+            int killCount = (int)(targets.Count * PlagueMortalityRate);
+            targets.Sort((a, b) =>
+            {
+                int healthCompare = a.Health.CompareTo(b.Health);
+                if (healthCompare != 0) return healthCompare;
+                return b.Age.CompareTo(a.Age);
+            });
+
+            for (int i = 0; i < killCount && i < targets.Count; i++)
+            {
+                targets[i].TakeDamage(targets[i].MaxHealth * 2, null);
             }
         }
     }

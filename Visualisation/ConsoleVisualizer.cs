@@ -1,15 +1,17 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using LivingSim.Core;
 using LivingSim.World;
-using LivingSim.Animals; // <--- ADDED THIS
+using LivingSim.Animals;
 
 namespace LivingSim.Visualisation
 {
     public class ConsoleVisualizer
     {
         private readonly Dictionary<Guid, ConsoleColor> _groupColors = new Dictionary<Guid, ConsoleColor>();
+        private (char character, ConsoleColor fg, ConsoleColor bg)[,]? _displayGrid;
+        private int _displayGridWidth;
+        private int _displayGridHeight;
 
         public void Draw(Grid grid, IReadOnlyList<Animal> animals, SimulationClock clock, List<Dictionary<Species, int>> history, bool showStats)
         {
@@ -21,45 +23,45 @@ namespace LivingSim.Visualisation
             }
             else
             {
-                var displayGrid = new (char character, ConsoleColor fg, ConsoleColor bg)[grid.Width, grid.Height];
+                EnsureDisplayGrid(grid.Width, grid.Height);
 
-                // 1. Draw Terrain and Resources
                 for (int y = 0; y < grid.Height; y++)
                 {
                     for (int x = 0; x < grid.Width; x++)
                     {
                         var cell = grid.GetCell(x, y);
-                        displayGrid[x, y] = GetTerrainDisplay(cell, clock.CurrentTick);
+                        _displayGrid![x, y] = GetTerrainDisplay(cell, clock.CurrentTick);
                     }
                 }
 
-                // 2. Draw dead animals (carcasses)
-                foreach (var animal in animals.Where(a => !a.IsAlive && a.CarcassFoodValue > 0))
+                for (int i = 0; i < animals.Count; i++)
                 {
+                    var animal = animals[i];
+                    if (animal.IsAlive || animal.CarcassFoodValue <= 0) continue;
                     if (animal.X >= 0 && animal.X < grid.Width && animal.Y >= 0 && animal.Y < grid.Height)
                     {
-                        var existingBg = displayGrid[animal.X, animal.Y].bg;
-                        displayGrid[animal.X, animal.Y] = ('x', ConsoleColor.DarkGray, existingBg);
+                        var existingBg = _displayGrid![animal.X, animal.Y].bg;
+                        _displayGrid[animal.X, animal.Y] = ('x', ConsoleColor.DarkGray, existingBg);
                     }
                 }
 
-                // 3. Draw living Animals on top
-                foreach (var animal in animals.Where(a => a.IsAlive))
+                for (int i = 0; i < animals.Count; i++)
                 {
+                    var animal = animals[i];
+                    if (!animal.IsAlive) continue;
                     if (animal.X >= 0 && animal.X < grid.Width && animal.Y >= 0 && animal.Y < grid.Height)
                     {
                         var (character, speciesColor) = GetAnimalDisplay(animal);
-                        var existingBg = displayGrid[animal.X, animal.Y].bg;
-                        displayGrid[animal.X, animal.Y] = (character, speciesColor, existingBg);
+                        var existingBg = _displayGrid![animal.X, animal.Y].bg;
+                        _displayGrid[animal.X, animal.Y] = (character, speciesColor, existingBg);
                     }
                 }
 
-                // 4. Render to console
                 for (int y = 0; y < grid.Height; y++)
                 {
                     for (int x = 0; x < grid.Width; x++)
                     {
-                        var cell = displayGrid[x, y];
+                        var cell = _displayGrid![x, y];
                         var fg = cell.fg;
                         var bg = cell.bg;
 
@@ -69,25 +71,47 @@ namespace LivingSim.Visualisation
                         Console.BackgroundColor = bg;
                         Console.Write(cell.character + " ");
                     }
-                    Console.BackgroundColor = ConsoleColor.Black; 
+                    Console.BackgroundColor = ConsoleColor.Black;
                     Console.WriteLine();
                 }
                 Console.ResetColor();
             }
 
-            // 5. Draw simulation stats
-            var aliveAnimals = animals.Where(a => a.IsAlive).ToList();
-            int totalAnimals = aliveAnimals.Count;
-
-            var speciesSummary = aliveAnimals
-                .GroupBy(a => a.Species)
-                .OrderBy(g => g.Key.ToString());
+            int totalAnimals = 0;
+            var speciesCounts = new Dictionary<Species, int>();
+            for (int i = 0; i < animals.Count; i++)
+            {
+                var animal = animals[i];
+                if (!animal.IsAlive) continue;
+                totalAnimals++;
+                speciesCounts.TryGetValue(animal.Species, out int count);
+                speciesCounts[animal.Species] = count + 1;
+            }
 
             string tickInfo = $"Tick: {clock.CurrentTick,-5} | Day: {clock.CurrentDay,-3} | Season: {clock.CurrentSeason,-6}".PadRight(Console.WindowWidth > 0 ? Console.WindowWidth - 1 : 80);
-            string popInfo = $"Population: {totalAnimals,-4} | " + string.Join(" | ", speciesSummary.Select(g => $"{g.Key}: {g.Count()}"));
-            
+            var speciesParts = new List<string>();
+            foreach (Species species in Enum.GetValues<Species>())
+            {
+                if (speciesCounts.TryGetValue(species, out int count))
+                {
+                    speciesParts.Add($"{species}: {count}");
+                }
+            }
+
+            string popInfo = $"Population: {totalAnimals,-4} | " + string.Join(" | ", speciesParts);
+
             Console.WriteLine(tickInfo);
             Console.WriteLine(popInfo.PadRight(Console.WindowWidth > 0 ? Console.WindowWidth - 1 : 80));
+        }
+
+        private void EnsureDisplayGrid(int width, int height)
+        {
+            if (_displayGrid == null || _displayGridWidth != width || _displayGridHeight != height)
+            {
+                _displayGrid = new (char character, ConsoleColor fg, ConsoleColor bg)[width, height];
+                _displayGridWidth = width;
+                _displayGridHeight = height;
+            }
         }
 
         private void DrawStatistics(List<Dictionary<Species, int>> history, int width, int height)
@@ -95,17 +119,23 @@ namespace LivingSim.Visualisation
             int maxPop = 0;
             if (history.Count > 0)
             {
-                maxPop = history.Max(d => d.Values.Count > 0 ? d.Values.Max() : 0);
+                for (int i = 0; i < history.Count; i++)
+                {
+                    foreach (var kvp in history[i])
+                    {
+                        if (kvp.Value > maxPop) maxPop = kvp.Value;
+                    }
+                }
             }
             if (maxPop == 0) maxPop = 1;
 
             int count = history.Count;
             int startIndex = Math.Max(0, count - width);
-            
+
             var buffer = new (char c, ConsoleColor color)[width, height];
-            for(int y=0; y<height; y++)
-                for(int x=0; x<width; x++)
-                    buffer[x,y] = (' ', ConsoleColor.White);
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                    buffer[x, y] = (' ', ConsoleColor.White);
 
             for (int i = startIndex; i < count; i++)
             {
@@ -117,10 +147,10 @@ namespace LivingSim.Visualisation
                 {
                     Species species = kvp.Key;
                     int pop = kvp.Value;
-                    
+
                     int scaledY = (int)(((float)pop / maxPop) * (height - 1));
                     int y = height - 1 - scaledY;
-                    
+
                     if (y >= 0 && y < height)
                     {
                         var (c, _) = GetSpeciesDisplay(species);
@@ -144,7 +174,8 @@ namespace LivingSim.Visualisation
 
         private (char, ConsoleColor, ConsoleColor) GetTerrainDisplay(WorldCell cell, long currentTick)
         {
-            var fg = cell.Terrain switch {
+            var fg = cell.Terrain switch
+            {
                 TerrainType.Water => ConsoleColor.Blue,
                 TerrainType.Mountain => ConsoleColor.Gray,
                 TerrainType.Forest => cell.Food > 5 ? ConsoleColor.Green : ConsoleColor.DarkGreen,
@@ -163,7 +194,8 @@ namespace LivingSim.Visualisation
                 bg = ToDarkColor(groupColor);
             }
 
-            var ch = cell.Terrain switch {
+            var ch = cell.Terrain switch
+            {
                 TerrainType.Water => '~',
                 TerrainType.Mountain => '^',
                 TerrainType.Forest => 'T',
@@ -180,7 +212,8 @@ namespace LivingSim.Visualisation
 
         private (char, ConsoleColor) GetAnimalDisplay(Animal animal) => GetSpeciesDisplay(animal.Species);
 
-        private (char, ConsoleColor) GetSpeciesDisplay(Species species) => species switch {
+        private (char, ConsoleColor) GetSpeciesDisplay(Species species) => species switch
+        {
             Species.Rabbit => ('r', ConsoleColor.White),
             Species.Deer => ('D', ConsoleColor.White),
             Species.Boar => ('b', ConsoleColor.DarkYellow),
@@ -190,7 +223,8 @@ namespace LivingSim.Visualisation
             _ => ('?', ConsoleColor.Magenta),
         };
 
-        private ConsoleColor GetSpeciesGraphColor(Species species) => species switch {
+        private ConsoleColor GetSpeciesGraphColor(Species species) => species switch
+        {
             Species.Rabbit => ConsoleColor.Cyan,
             Species.Deer => ConsoleColor.Green,
             Species.Boar => ConsoleColor.DarkYellow,

@@ -372,8 +372,11 @@ namespace LivingSim.Animals
 
             if (_random.NextDouble() < moveSuccessChance)
             {
+                int oldX = X;
+                int oldY = Y;
                 X = newX;
                 Y = newY;
+                grid.MoveAnimal(this, oldX, oldY, X, Y);
 
                 // Claim territory upon successful move
                 if (targetCell != null)
@@ -431,15 +434,15 @@ namespace LivingSim.Animals
             }
 
             // 1. Identify all nearby animals (mates, predators, rivals)
-            var (localMates, nearbyPredators, rivalsOnHomeTurf) = IdentifyNearbyEntities(allAnimals, grid);
+            var (localMates, nearbyPredators, rivalsOnHomeTurf) = IdentifyNearbyEntities(grid);
 
             // 2. Handle high-priority "fight or flight" responses. If any of these trigger, the animal acts and the turn ends.
             if (HandleFear(nearbyPredators, grid, currentTick)) return;
             if (HandleInjury(grid, currentTick)) return;
-            if (HandleTerritorialAggression(allAnimals, grid, currentTick)) return;
+            if (HandleTerritorialAggression(grid, currentTick)) return;
 
             // 3. If no immediate threats, perform complex goal-seeking behavior.
-            PerformGoalSeekingMove(grid, allAnimals, currentTick, localMates, rivalsOnHomeTurf);
+            PerformGoalSeekingMove(grid, currentTick, localMates, rivalsOnHomeTurf);
         }
 
         #region AI Behavior Sub-methods
@@ -475,45 +478,54 @@ namespace LivingSim.Animals
         /// <summary>
         /// Scans the surroundings for other animals and categorizes them.
         /// </summary>
-        private (List<Animal> localMates, List<Animal> nearbyPredators, List<Animal> rivalsOnHomeTurf) IdentifyNearbyEntities(IReadOnlyList<Animal> allAnimals, Grid grid)
+        private (List<Animal> localMates, List<Animal> nearbyPredators, List<Animal> rivalsOnHomeTurf) IdentifyNearbyEntities(Grid grid)
         {
             var localMates = new List<Animal>();
             var nearbyPredators = new List<Animal>();
             var rivalsOnHomeTurf = new List<Animal>();
 
-            // PERF: This iterates all animals in the simulation for each animal's move.
-            // This is an O(N^2) operation and a major performance bottleneck.
-            // A spatial partitioning system (e.g., passing in a list of only nearby animals) would be much better.
-            foreach (var other in allAnimals)
+            int visionSq = VisionRange * VisionRange;
+            for (int dx = -VisionRange; dx <= VisionRange; dx++)
             {
-                if (other == this || !other.IsAlive) continue;
-
-                int dX = X - other.X;
-                int dY = Y - other.Y;
-                double distSq = dX * dX + dY * dY;
-
-                if (distSq > VisionRange * VisionRange) continue; // Out of sight
-
-                // Is it a predator? (Only for herbivores/omnivores)
-                if (this.Type != AnimalType.Carnivore && other.Type == AnimalType.Carnivore)
+                for (int dy = -VisionRange; dy <= VisionRange; dy++)
                 {
-                    nearbyPredators.Add(other);
-                }
-                // Is it a herd/pack mate?
-                if (other.GroupId == this.GroupId)
-                {
-                    localMates.Add(other);
-                }
-                // Is it a rival on its own territory?
-                else
-                {
-                    var rivalCell = grid.GetCell(other.X, other.Y);
-                    if (rivalCell != null && rivalCell.TerritoryOwnerId == other.GroupId)
+                    int nx = X + dx;
+                    int ny = Y + dy;
+                    var cell = grid.GetCell(nx, ny);
+                    if (cell == null) continue;
+
+                    var residents = cell.Residents;
+                    for (int i = 0; i < residents.Count; i++)
                     {
-                        rivalsOnHomeTurf.Add(other);
+                        var other = residents[i];
+                        if (other == this || !other.IsAlive) continue;
+
+                        int dX = X - other.X;
+                        int dY = Y - other.Y;
+                        int distSq = dX * dX + dY * dY;
+                        if (distSq > visionSq) continue;
+
+                        if (this.Type != AnimalType.Carnivore && other.Type == AnimalType.Carnivore)
+                        {
+                            nearbyPredators.Add(other);
+                        }
+
+                        if (other.GroupId == this.GroupId)
+                        {
+                            localMates.Add(other);
+                        }
+                        else
+                        {
+                            var rivalCell = grid.GetCell(other.X, other.Y);
+                            if (rivalCell != null && rivalCell.TerritoryOwnerId == other.GroupId)
+                            {
+                                rivalsOnHomeTurf.Add(other);
+                            }
+                        }
                     }
                 }
             }
+
             return (localMates, nearbyPredators, rivalsOnHomeTurf);
         }
 
@@ -523,7 +535,7 @@ namespace LivingSim.Animals
         /// <returns>True if the animal fled, false otherwise.</returns>
         private bool HandleFear(IReadOnlyList<Animal> nearbyPredators, Grid grid, long currentTick)
         {
-            if (!nearbyPredators.Any()) return false;
+            if (nearbyPredators.Count == 0) return false;
 
             var closestPredator = FindClosest(nearbyPredators);
             if (closestPredator != null)
@@ -589,18 +601,35 @@ namespace LivingSim.Animals
         /// Handles aggressive behavior towards intruders within the animal's territory.
         /// </summary>
         /// <returns>True if the animal chased an intruder, false otherwise.</returns>
-        private bool HandleTerritorialAggression(IReadOnlyList<Animal> allAnimals, Grid grid, long currentTick)
+        private bool HandleTerritorialAggression(Grid grid, long currentTick)
         {
             var currentCell = grid.GetCell(this.X, this.Y);
             // Only non-herbivores exhibit territorial aggression
             if (this.Type != AnimalType.Herbivore && currentCell != null && currentCell.TerritoryOwnerId.HasValue && currentCell.TerritoryOwnerId.Value == this.GroupId)
             {
                 // We are in our own territory. Look for intruders.
-                var intruders = allAnimals
-                    .Where(a => a.IsAlive && a.GroupId != this.GroupId) // Different group
-                    .Where(a => (X - a.X) * (X - a.X) + (Y - a.Y) * (Y - a.Y) <= VisionRange * VisionRange); // Within vision
+                Animal? closestIntruder = null;
+                double bestDistSq = double.MaxValue;
+                int visionSq = VisionRange * VisionRange;
 
-                var closestIntruder = FindClosest(intruders);
+                for (int dx = -VisionRange; dx <= VisionRange; dx++)
+                {
+                    for (int dy = -VisionRange; dy <= VisionRange; dy++)
+                    {
+                        var cell = grid.GetCell(X + dx, Y + dy);
+                        if (cell == null) continue;
+                        var residents = cell.Residents;
+                        for (int i = 0; i < residents.Count; i++)
+                        {
+                            var candidate = residents[i];
+                            if (!candidate.IsAlive || candidate.GroupId == this.GroupId) continue;
+                            int distSq = (X - candidate.X) * (X - candidate.X) + (Y - candidate.Y) * (Y - candidate.Y);
+                            if (distSq > visionSq || distSq >= bestDistSq) continue;
+                            bestDistSq = distSq;
+                            closestIntruder = candidate;
+                        }
+                    }
+                }
 
                 if (closestIntruder != null)
                 {
@@ -632,7 +661,7 @@ namespace LivingSim.Animals
         /// The main logic for combining various environmental and social factors into a single movement decision.
         /// This is called when no high-priority threats are present.
         /// </summary>
-        private void PerformGoalSeekingMove(Grid grid, IReadOnlyList<Animal> allAnimals, long currentTick, List<Animal> localMates, List<Animal> rivalsOnHomeTurf)
+        private void PerformGoalSeekingMove(Grid grid, long currentTick, List<Animal> localMates, List<Animal> rivalsOnHomeTurf)
         {
             // This method calculates a series of "steering vectors" based on the animal's current state and environment.
             // Each vector is weighted and then combined to produce a final movement direction.
@@ -650,11 +679,18 @@ namespace LivingSim.Animals
             float goalDx = 0, goalDy = 0;
 
             // --- Social Vectors (Cohesion & Separation) ---
-            if (localMates.Any())
+            if (localMates.Count > 0)
             {
                 // Cohesion: steer towards center of local mates
-                float centerX = (float)localMates.Average(m => m.X);
-                float centerY = (float)localMates.Average(m => m.Y);
+                float sumMateX = 0f;
+                float sumMateY = 0f;
+                for (int i = 0; i < localMates.Count; i++)
+                {
+                    sumMateX += localMates[i].X;
+                    sumMateY += localMates[i].Y;
+                }
+                float centerX = sumMateX / localMates.Count;
+                float centerY = sumMateY / localMates.Count;
                 cohesionDx = centerX - X;
                 cohesionDy = centerY - Y;
 
@@ -681,10 +717,17 @@ namespace LivingSim.Animals
                 lingeringFearDy = Y - predY;
             }
 
-            if (rivalsOnHomeTurf.Any())
+            if (rivalsOnHomeTurf.Count > 0)
             {
-                float rivalCenterX = (float)rivalsOnHomeTurf.Average(r => r.X);
-                float rivalCenterY = (float)rivalsOnHomeTurf.Average(r => r.Y);
+                float rivalSumX = 0f;
+                float rivalSumY = 0f;
+                for (int i = 0; i < rivalsOnHomeTurf.Count; i++)
+                {
+                    rivalSumX += rivalsOnHomeTurf[i].X;
+                    rivalSumY += rivalsOnHomeTurf[i].Y;
+                }
+                float rivalCenterX = rivalSumX / rivalsOnHomeTurf.Count;
+                float rivalCenterY = rivalSumY / rivalsOnHomeTurf.Count;
                 territorialAversionDx = X - rivalCenterX;
                 territorialAversionDy = Y - rivalCenterY;
             }
@@ -883,19 +926,57 @@ namespace LivingSim.Animals
                 {
                     // --- Carnivore AI: Prioritize smaller, safer prey ---
                     // 1. Find the closest, smallest prey first.
-                    var smallPrey = allAnimals
-                        .Where(a => a.IsAlive && a.Type != AnimalType.Carnivore && a.Size < this.Size && IsInVision(a));
-                    var closestFoodSource = FindClosest(smallPrey);
+                    Animal? closestFoodSource = null;
+                    double closestPreyDist = double.MaxValue;
+                    int visionSq = VisionRange * VisionRange;
 
-                    // 2. If no small prey is found, look for any prey or a carcass (more desperate).
+                    for (int dx = -VisionRange; dx <= VisionRange; dx++)
+                    {
+                        for (int dy = -VisionRange; dy <= VisionRange; dy++)
+                        {
+                            var cell = grid.GetCell(X + dx, Y + dy);
+                            if (cell == null) continue;
+                            var residents = cell.Residents;
+                            for (int i = 0; i < residents.Count; i++)
+                            {
+                                var other = residents[i];
+                                if (other == this) continue;
+                                int distSq = (X - other.X) * (X - other.X) + (Y - other.Y) * (Y - other.Y);
+                                if (distSq > visionSq) continue;
+
+                                bool isSmallPrey = other.IsAlive && other.Type != AnimalType.Carnivore && other.Size < this.Size;
+                                if (isSmallPrey && distSq < closestPreyDist)
+                                {
+                                    closestPreyDist = distSq;
+                                    closestFoodSource = other;
+                                }
+                            }
+                        }
+                    }
+
                     if (closestFoodSource == null)
                     {
-                        var anyPreyOrCarcass = allAnimals
-                            .Where(a => a != this)
-                            .Where(a => IsInVision(a))
-                            .Where(a => (a.IsAlive && a.Type != AnimalType.Carnivore) || (!a.IsAlive && !a.IsConsumed));
-                        
-                        closestFoodSource = FindClosest(anyPreyOrCarcass);
+                        for (int dx = -VisionRange; dx <= VisionRange; dx++)
+                        {
+                            for (int dy = -VisionRange; dy <= VisionRange; dy++)
+                            {
+                                var cell = grid.GetCell(X + dx, Y + dy);
+                                if (cell == null) continue;
+                                var residents = cell.Residents;
+                                for (int i = 0; i < residents.Count; i++)
+                                {
+                                    var other = residents[i];
+                                    if (other == this) continue;
+                                    int distSq = (X - other.X) * (X - other.X) + (Y - other.Y) * (Y - other.Y);
+                                    if (distSq > visionSq || distSq >= closestPreyDist) continue;
+                                    if ((other.IsAlive && other.Type != AnimalType.Carnivore) || (!other.IsAlive && !other.IsConsumed))
+                                    {
+                                        closestPreyDist = distSq;
+                                        closestFoodSource = other;
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     if (closestFoodSource != null)
@@ -929,9 +1010,31 @@ namespace LivingSim.Animals
                     }
 
                     // 2. Find closest carcass in vision
-                    var carcasses = allAnimals
-                        .Where(a => !a.IsAlive && !a.IsConsumed && IsInVision(a));
-                    var closestCarcass = FindClosest(carcasses);
+                    Animal? closestCarcass = null;
+                    double closestCarcassDistSq = double.MaxValue;
+                    int visionSqForCarcass = VisionRange * VisionRange;
+                    for (int dx = -VisionRange; dx <= VisionRange; dx++)
+                    {
+                        for (int dy = -VisionRange; dy <= VisionRange; dy++)
+                        {
+                            var cell = grid.GetCell(X + dx, Y + dy);
+                            if (cell == null) continue;
+                            var residents = cell.Residents;
+                            for (int i = 0; i < residents.Count; i++)
+                            {
+                                var other = residents[i];
+                                if (!other.IsAlive && !other.IsConsumed)
+                                {
+                                    int distSq = (X - other.X) * (X - other.X) + (Y - other.Y) * (Y - other.Y);
+                                    if (distSq <= visionSqForCarcass && distSq < closestCarcassDistSq)
+                                    {
+                                        closestCarcassDistSq = distSq;
+                                        closestCarcass = other;
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     // 3. Compare scores and decide target
                     float plantScore = 0;
@@ -1166,8 +1269,16 @@ namespace LivingSim.Animals
                     float damageBonus = 0;
                     if (Species == SpeciesEnum.Wolf)
                     {
-                        int otherWolvesInCell = cellMates.Count(a => a != this && a.Species == SpeciesEnum.Wolf && a.IsAlive);
-                    if (otherWolvesInCell > 0) damageBonus = 2.0f * otherWolvesInCell; // Slightly reduced pack hunting damage bonus
+                        int otherWolvesInCell = 0;
+                        for (int i = 0; i < cellMates.Count; i++)
+                        {
+                            var mate = cellMates[i];
+                            if (mate != this && mate.Species == SpeciesEnum.Wolf && mate.IsAlive)
+                            {
+                                otherWolvesInCell++;
+                            }
+                        }
+                        if (otherWolvesInCell > 0) damageBonus = 2.0f * otherWolvesInCell; // Slightly reduced pack hunting damage bonus
                     }
 
                     float damageDealt = (10.0f * Size) + damageBonus; // Significantly increased base hunting damage
@@ -1177,10 +1288,10 @@ namespace LivingSim.Animals
                     if (!prey.IsAlive)
                     {
                         // Identify pack members in the same cell (including self)
-                        var packMates = cellMates.Where(a => a.IsAlive && a.GroupId == this.GroupId).ToList();
-
-                        foreach (var member in packMates)
+                        for (int i = 0; i < cellMates.Count; i++)
                         {
+                            var member = cellMates[i];
+                            if (!member.IsAlive || member.GroupId != this.GroupId) continue;
                             float hungerDeficit = member.MaxHunger - member.Hunger;
                             if (hungerDeficit > 0)
                             {

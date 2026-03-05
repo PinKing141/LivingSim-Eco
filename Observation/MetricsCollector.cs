@@ -14,24 +14,9 @@ namespace LivingSim.Observation
 
         public void CollectMetrics(Grid grid, SimulationClock clock)
         {
-            float food = 0;
-            float water = 0;
-            float timber = 0;
-
-            for (int x = 0; x < grid.Width; x++)
-            {
-                for (int y = 0; y < grid.Height; y++)
-                {
-                    var cell = grid.GetCell(x, y);
-                    food += cell.Food;
-                    water += cell.Water;
-                    timber += cell.Timber;
-                }
-            }
-
-            TotalFood = food;
-            TotalWater = water;
-            TotalTimber = timber;
+            TotalFood = grid.TotalFood;
+            TotalWater = grid.TotalWater;
+            TotalTimber = grid.TotalTimber;
         }
 
         public void PrintMetrics(long tick)

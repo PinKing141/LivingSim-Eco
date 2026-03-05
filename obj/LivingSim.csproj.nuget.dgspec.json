@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\fezeh\\OneDrive\\Documents\\New Project\\LivingSim-V4\\LivingSim.csproj": {}
+    "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\LivingSim.csproj": {}
   },
   "projects": {
-    "C:\\Users\\fezeh\\OneDrive\\Documents\\New Project\\LivingSim-V4\\LivingSim.csproj": {
+    "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\LivingSim.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\fezeh\\OneDrive\\Documents\\New Project\\LivingSim-V4\\LivingSim.csproj",
+        "projectUniqueName": "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\LivingSim.csproj",
         "projectName": "LivingSim",
-        "projectPath": "C:\\Users\\fezeh\\OneDrive\\Documents\\New Project\\LivingSim-V4\\LivingSim.csproj",
-        "packagesPath": "C:\\Users\\fezeh\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\fezeh\\OneDrive\\Documents\\New Project\\LivingSim-V4\\obj\\",
+        "projectPath": "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\LivingSim.csproj",
+        "packagesPath": "C:\\Users\\Favour\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\fezeh\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\Favour\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net10.0"
@@ -59,7 +59,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.102/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.CSharp": "(,4.7.32767]",
             "Microsoft.VisualBasic": "(,10.4.32767]",
