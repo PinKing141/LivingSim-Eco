@@ -1,36 +1,36 @@
 # LivingSim-Eco
 
-A console-based ecosystem simulation in C# where animals move, hunt, reproduce, and react to day/night + seasonal changes.
+LivingSim-Eco is an artificial-life ecosystem project focused on autonomous nature simulation, long-term ecological change, and evolution.
 
-## Prerequisites
-- .NET SDK 10.0+
+The original project was a console/ASCII ecosystem prototype in C#. The current direction is a broader **observer-first vivarium**: generate a deterministic world from a seed, allow the ecosystem to develop without direct player intervention, and watch natural history emerge across individuals, populations, generations, and deep time.
 
-## Run
-```bash
-dotnet run --project LivingSim.csproj
-```
+> The final visual style and rendering technology are intentionally not locked yet.
 
-## Controls
-- `↑` : speed up simulation (reduce delay)
-- `↓` : slow down simulation (increase delay)
-- `Space` : pause/resume
-- `S` : toggle stats view
+## Current design documentation
 
-## Key configuration
-Simulation tuning values are centralized in `Config/SimulationConfig.cs`, including:
-- world size
-- initial species counts
-- generation steps
-- simulation tick count
-- delay/step timings
-- population history window
+The Vivarium concept and development roadmap are broken down under [`docs/vivarium/`](docs/vivarium/README.md):
 
-## Project structure
-- `Program.cs` — entrypoint + main loop wiring
-- `Core/` — clock + world orchestration
-- `World/` — grid, terrain, biome, scents, species
-- `Animals/` — animal behavior and management
-- `Environment/` — resource/weather tick systems
-- `Generation/` — world generation/noise
-- `Observation/` — metrics + logging
-- `Visualisation/` — console renderer
+- [Product Vision](docs/vivarium/01-product-vision.md)
+- [Player Role & Experience](docs/vivarium/02-player-role-and-experience.md)
+- [Simulation & Evolution](docs/vivarium/03-simulation-and-evolution.md)
+- [History, Lineages & Seeds](docs/vivarium/04-history-lineages-and-seeds.md)
+- [Presentation Direction](docs/vivarium/05-presentation-direction.md)
+- [Technical Architecture](docs/vivarium/06-technical-architecture.md)
+- [Development Roadmap](docs/vivarium/07-development-roadmap.md)
+- [Locked Decisions & Open Questions](docs/vivarium/08-decisions-and-open-questions.md)
+
+## Core direction
+
+- Observer-first rather than ecosystem management.
+- Seed-driven deterministic worlds.
+- Autonomous predator/prey and food-web simulation.
+- Inheritance, mutation, and readable evolution.
+- Deep-time climate and ecological pressure.
+- Population, lineage, and world-history observation.
+- Simulation core capable of running headless and independently from presentation.
+
+## Legacy prototype
+
+The earlier console prototype included animals that moved, hunted, reproduced, interacted with resources, and reacted to day/night and seasonal changes. Its implementation remains available in Git history and serves as behavioural reference material for the rewrite.
+
+The rewrite should preserve the useful ecological ideas without treating the legacy architecture as the final technical foundation.
