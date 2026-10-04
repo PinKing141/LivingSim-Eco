@@ -64,6 +64,8 @@ A world can generate and advance thousands of ticks with no animals and reproduc
 
 ## Slice 2 - Two-species survival loop
 
+**Status: Complete (2026-10-04).** The headless core now has a dense animal store, local spatial buckets, a herbivore and predator, movement, ageing, energy, health, local targeting, plant feeding, hunting, starvation, death, carcasses, and concise population debug output. Tests cover world bounds, plant consumption, valid prey kills, starvation, carcass consumption/decay, and deterministic full state after 1,000 ticks.
+
 ### Goal
 
 Prove the minimum autonomous ecosystem with one herbivore and one predator.

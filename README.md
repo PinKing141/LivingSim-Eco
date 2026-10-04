@@ -31,7 +31,7 @@ The Vivarium concept and development roadmap are broken down under [`docs/vivari
 
 ## Current runnable foundation
 
-Slice 1 provides a deterministic, animal-free world with terrain, biomes, numeric plant biomass, and resource regeneration. See [RUN.md](RUN.md) for headless command-line usage and verification.
+Slices 1–2 provide a deterministic world with terrain, biomes, numeric plant biomass, one herbivore species, one predator species, and headless survival-loop reporting. See [RUN.md](RUN.md) for command-line usage and verification.
 
 ## Legacy prototype
 

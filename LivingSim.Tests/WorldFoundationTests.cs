@@ -42,7 +42,19 @@ public sealed class WorldFoundationTests
     public void SimulationOrder_IsStableAndExplicit()
     {
         Assert.Equal(
-        [SimulationSystem.Climate, SimulationSystem.ResourceRegeneration, SimulationSystem.Metrics],
+        [
+            SimulationSystem.Climate,
+            SimulationSystem.ResourceRegeneration,
+            SimulationSystem.Metabolism,
+            SimulationSystem.SpatialIndexUpdate,
+            SimulationSystem.Perception,
+            SimulationSystem.Movement,
+            SimulationSystem.Combat,
+            SimulationSystem.Feeding,
+            SimulationSystem.LifecycleAndDeath,
+            SimulationSystem.CarcassProcessing,
+            SimulationSystem.Metrics,
+        ],
         WorldSimulation.SystemOrder);
     }
 
