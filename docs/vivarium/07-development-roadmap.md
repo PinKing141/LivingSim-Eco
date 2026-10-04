@@ -428,6 +428,98 @@ A stable build can create, run, save, reload, and revisit long-lived vivariums a
 
 ---
 
+# End goal of the 11-slice roadmap
+
+Slices 0-11 are the **LivingSim-Eco simulation foundation and proof-of-concept milestone**. They are not the complete final game and should not continually expand to absorb every future idea.
+
+The purpose of finishing this roadmap is to prove the central product question:
+
+> **Can a seeded ecosystem be interesting enough to watch for long periods when the player has no ecological control over it?**
+
+The roadmap is considered complete only when the following are true:
+
+- A player can enter or generate a seed and create a deterministic world.
+- The world can run for thousands of simulated years without requiring player intervention.
+- Multiple species can survive, compete, reproduce, migrate, hunt, scavenge, die out, and recover according to systemic rules rather than scripted outcomes.
+- Evolution is visible across generations through measurable trait changes caused by selection pressure.
+- Climate, resources, geography, predation, reproduction, and population density interact strongly enough to create cascading ecological consequences.
+- Different seeds can produce meaningfully different natural histories rather than converging on the same repeating pattern.
+- Valid outcomes include coexistence, population booms, crashes, recovery, local extinction, total extinction, migration, and long-term evolutionary shifts.
+- The player can investigate **why** something happened through population graphs, trait data, environmental history, lineages, and notable events.
+- Individual animals can be inspected and followed without making the simulation dependent on individual-character micromanagement.
+- The simulation remains deterministic and headless-capable.
+- Long-run performance supports the intended population scale without the observer/presentation layer controlling simulation behaviour.
+- A vivarium can be saved, reloaded, continued, and revisited without changing its deterministic future for the same simulation version.
+- The experience is already compelling with a deliberately limited species/content roster.
+
+## Completion test
+
+Before starting another major roadmap, run a small evaluation set of different seeds for long periods.
+
+The milestone passes if those runs naturally produce substantially different, explainable histories such as:
+
+- one seed reaching long-term predator/prey coexistence,
+- another losing a predator lineage,
+- another experiencing a climate-driven population bottleneck,
+- another showing a clear evolutionary response to sustained selection pressure,
+- another producing migration or geographically separated populations with different trait trends.
+
+If every seed mainly settles into the same repeating population cycle, the answer is **not** to add dozens of new species. The existing ecosystem needs more depth first.
+
+## Scope discipline until completion
+
+Until this milestone is reached, avoid turning the roadmap into a feature wishlist.
+
+Not required to complete the 11-slice milestone:
+
+- a huge species roster,
+- the final art style,
+- extensive cosmetic variety,
+- player ecosystem intervention tools,
+- achievements,
+- extensive meta-progression,
+- large amounts of handcrafted content,
+- additional simulation layers that do not improve the core ecology.
+
+New ideas can be recorded for later, but the priority remains completing and validating the existing slices.
+
+## What comes after
+
+Once the completion test passes, stop extending this roadmap and create a new roadmap for **Vivarium Alpha**.
+
+Vivarium Alpha should focus on turning the proven simulation into the fuller product, including areas such as:
+
+- final presentation and visual experimentation,
+- stronger observer UX,
+- lineage and natural-history presentation,
+- accessibility and readability,
+- audio and atmosphere,
+- performance scaling,
+- additional ecosystem breadth,
+- release-facing polish.
+
+The order of development is therefore:
+
+```text
+Depth
+  ↓
+Ecological Stability
+  ↓
+Observability
+  ↓
+11-Slice Completion Test
+  ↓
+Vivarium Alpha
+  ↓
+Broader Content / Final Product
+```
+
+The goal is not to build the ecosystem with the most features.
+
+The goal is to reach the point where a player can watch the same limited set of species for a long time because they genuinely want to know **what happens next**.
+
+---
+
 # Roadmap principle
 
 Later slices may refine earlier systems, but they should not create circular architectural dependencies.
