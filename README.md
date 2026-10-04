@@ -29,6 +29,10 @@ The Vivarium concept and development roadmap are broken down under [`docs/vivari
 - Population, lineage, and world-history observation.
 - Simulation core capable of running headless and independently from presentation.
 
+## Current runnable foundation
+
+Slice 1 provides a deterministic, animal-free world with terrain, biomes, numeric plant biomass, and resource regeneration. See [RUN.md](RUN.md) for headless command-line usage and verification.
+
 ## Legacy prototype
 
 The earlier console prototype included animals that moved, hunted, reproduced, interacted with resources, and reacted to day/night and seasonal changes. Its implementation is preserved at the `legacy-ascii-prototype` Git tag and documented in the [Legacy Prototype Baseline](docs/vivarium/00-legacy-prototype-baseline.md). It serves as behavioural reference material for the rewrite.

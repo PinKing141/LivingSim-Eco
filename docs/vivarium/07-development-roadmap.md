@@ -32,6 +32,8 @@ Protect the old playable ASCII ecosystem as a reference while creating a clean f
 
 ## Slice 1 - Deterministic world foundation
 
+**Status: Complete (2026-10-04).** The headless Slice 1 core uses versioned seed settings, compact world-cell storage, deterministic terrain/biome generation, fixed-point plant biomass regeneration, and an explicit immutable system order. Automated checks cover same-seed generation, 10,000-tick resource determinism, biomass bounds, system order, and absence of console use in the core.
+
 ### Goal
 
 Create a world that can generate and advance deterministically before animals exist.
