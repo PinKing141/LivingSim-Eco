@@ -6,6 +6,7 @@ LivingSim: Vivarium is an observer-first artificial-life ecosystem simulation. A
 
 ## Documentation map
 
+- [00 - Legacy Prototype Baseline](00-legacy-prototype-baseline.md)
 - [01 - Product Vision](01-product-vision.md)
 - [02 - Player Role & Experience](02-player-role-and-experience.md)
 - [03 - Simulation & Evolution](03-simulation-and-evolution.md)

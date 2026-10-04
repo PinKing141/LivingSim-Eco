@@ -31,6 +31,6 @@ The Vivarium concept and development roadmap are broken down under [`docs/vivari
 
 ## Legacy prototype
 
-The earlier console prototype included animals that moved, hunted, reproduced, interacted with resources, and reacted to day/night and seasonal changes. Its implementation remains available in Git history and serves as behavioural reference material for the rewrite.
+The earlier console prototype included animals that moved, hunted, reproduced, interacted with resources, and reacted to day/night and seasonal changes. Its implementation is preserved at the `legacy-ascii-prototype` Git tag and documented in the [Legacy Prototype Baseline](docs/vivarium/00-legacy-prototype-baseline.md). It serves as behavioural reference material for the rewrite.
 
 The rewrite should preserve the useful ecological ideas without treating the legacy architecture as the final technical foundation.

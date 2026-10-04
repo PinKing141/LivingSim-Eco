@@ -8,6 +8,8 @@ Each slice should be completed and stabilised before systems that depend on it a
 
 ## Slice 0 - Preserve the prototype
 
+**Status: Complete (2026-10-04).** The final pre-cleanup console prototype is preserved at Git tag `legacy-ascii-prototype`; its retained behaviours and intentional rewrite exclusions are documented in [00 - Legacy Prototype Baseline](00-legacy-prototype-baseline.md).
+
 ### Goal
 
 Protect the old playable ASCII ecosystem as a reference while creating a clean foundation for the rewrite.
