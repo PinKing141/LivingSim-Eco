@@ -34,13 +34,13 @@ public sealed class SpatialIndex
         }
     }
 
-    public int FindNearestPlantEater(EntityStore entities, int x, int y, int radius, int hunterSize, int hunterId)
-        => FindNearest(entities, x, y, radius, hunterSize, species: null, sex: null, excludeId: hunterId);
+    public int FindNearestPlantEater(EntityStore entities, int x, int y, int radius, int hunterSize, int hunterId, AnimalSpecies? excludedSpecies = null)
+        => FindNearest(entities, x, y, radius, hunterSize, species: null, sex: null, excludeId: hunterId, excludedSpecies);
 
     public int FindNearestMate(EntityStore entities, int x, int y, int radius, AnimalSpecies species, AnimalSex requiredSex)
-        => FindNearest(entities, x, y, radius, int.MaxValue, species, requiredSex, excludeId: 0);
+        => FindNearest(entities, x, y, radius, int.MaxValue, species, requiredSex, excludeId: 0, excludedSpecies: null);
 
-    private int FindNearest(EntityStore entities, int x, int y, int radius, int hunterSize, AnimalSpecies? species, AnimalSex? sex, int excludeId)
+    private int FindNearest(EntityStore entities, int x, int y, int radius, int hunterSize, AnimalSpecies? species, AnimalSex? sex, int excludeId, AnimalSpecies? excludedSpecies)
     {
         var minimumX = Math.Max(0, (x - radius) / BucketSize);
         var maximumX = Math.Min(_bucketColumns - 1, (x + radius) / BucketSize);
@@ -57,6 +57,7 @@ public sealed class SpatialIndex
                 {
                     var candidate = entities.GetById(candidateId);
                     if (!candidate.IsAlive || candidate.Id == excludeId ||
+                        (excludedSpecies.HasValue && candidate.Species == excludedSpecies.Value) ||
                         (species.HasValue ? candidate.Species != species.Value : !SpeciesProfiles.IsPlantEater(candidate.Species)) ||
                         candidate.Traits.Size > hunterSize ||
                         (sex.HasValue && (candidate.Sex != sex.Value || candidate.AgeTicks < 200 ||

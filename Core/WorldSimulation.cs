@@ -233,7 +233,8 @@ public sealed class WorldSimulation
                 animal.TargetEntityId = keepCurrentPrey
                     ? previousTargetId
                     : SpatialIndex.FindNearestPlantEater(Entities, animal.X, animal.Y,
-                        animal.Traits.Vision * (Metrics.Predators <= 4 ? 4 : 2), animal.Traits.Size, animal.Id);
+                        animal.Traits.Vision * (Metrics.Predators <= 4 ? 4 : 2), animal.Traits.Size, animal.Id,
+                        animal.Species == AnimalSpecies.Omnivore ? animal.Species : null);
                 if (animal.TargetEntityId != 0)
                 {
                     var prey = Entities.GetById(animal.TargetEntityId);
