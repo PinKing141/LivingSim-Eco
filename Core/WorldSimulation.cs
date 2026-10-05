@@ -554,7 +554,9 @@ public sealed class WorldSimulation
     private bool CanReproduce(AnimalState animal)
     {
         var profile = SpeciesProfiles.For(animal.Species);
-        var minimumReproductionEnergy = profile.HuntsPrey ? SatiatedEnergy(profile) : ReproductionEnergyCost + 50;
+        var minimumReproductionEnergy = profile.HuntsPrey
+            ? SatiatedEnergy(profile) * (animal.Species is AnimalSpecies.ApexPredator or AnimalSpecies.Omnivore ? 2 : 1)
+            : ReproductionEnergyCost + 50;
         if (!animal.IsAlive ||
             animal.AgeTicks < MaturityAgeTicks ||
             animal.Health <= 0 ||
