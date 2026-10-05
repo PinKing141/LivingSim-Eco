@@ -44,6 +44,7 @@ public sealed class WorldSimulation
     public LineageHistory Lineages { get; } = new();
     public NaturalHistory NaturalHistory { get; } = new();
     public HuntingTelemetry? HuntingTelemetry { get; set; }
+    public ResourceTelemetry? ResourceTelemetry { get; set; }
     public SimulationMetrics Metrics { get; private set; }
     public IReadOnlyDictionary<AnimalSpecies, int> PopulationBySpecies => _populationBySpecies;
     public IReadOnlyDictionary<int, PopulationGroup> Groups => _groups;
@@ -138,7 +139,9 @@ public sealed class WorldSimulation
                 : Math.Max(0, cell.HabitatPressure - 1);
             var effectiveRegeneration = cell.BiomassRegenerationPerTick * (1_000 - cell.HabitatPressure) / 1_000;
             effectiveRegeneration = effectiveRegeneration * Climate.BiomassModifierMilli / 1_000;
+            var previousBiomass = cell.PlantBiomass;
             cell.PlantBiomass = Math.Min(cell.MaxPlantBiomass, cell.PlantBiomass + effectiveRegeneration);
+            ResourceTelemetry?.RecordRegeneration(cell.PlantBiomass - previousBiomass);
         }
     }
 
@@ -187,6 +190,31 @@ public sealed class WorldSimulation
             {
                 var previousTargetId = animal.TargetEntityId;
                 var previousTargetSurvived = previousTargetId != 0 && Entities.GetById(previousTargetId).IsAlive;
+                if (animal.Energy >= SatiatedEnergy(profile))
+                {
+                    SetWanderTarget(ref animal);
+                    HuntingTelemetry?.RecordTarget(animal.Id, previousTargetId, 0, previousTargetSurvived, Tick);
+                    continue;
+                }
+                if (animal.Sex == AnimalSex.Female && animal.AgeTicks >= MaturityAgeTicks &&
+                    animal.ReproductionCooldown == 0 && animal.Energy >= profile.StartingEnergy)
+                {
+                    var mateId = SpatialIndex.FindNearestMate(Entities, animal.X, animal.Y,
+                        animal.Traits.Vision * 8, animal.Species, AnimalSex.Male);
+                    if (mateId != 0)
+                    {
+                        var mate = Entities.GetById(mateId);
+                        var mateDistance = Math.Abs(mate.X - animal.X) + Math.Abs(mate.Y - animal.Y);
+                        if (mateDistance > animal.Traits.Vision * 3)
+                        {
+                            animal.TargetEntityId = 0;
+                            animal.TargetX = mate.X;
+                            animal.TargetY = mate.Y;
+                            HuntingTelemetry?.RecordTarget(animal.Id, previousTargetId, 0, previousTargetSurvived, Tick);
+                            continue;
+                        }
+                    }
+                }
                 var carcassSearchRadius = previousTargetId == 0 ? animal.Traits.Vision * 2 : 2;
                 if (profile.Diet.HasFlag(Diet.Carcasses) && TryFindNearestCarcass(animal, carcassSearchRadius, out var foodX, out var foodY))
                 {
@@ -198,13 +226,13 @@ public sealed class WorldSimulation
                 }
 
                 var previousPrey = previousTargetSurvived ? Entities.GetById(previousTargetId) : default;
-                var keepCurrentPrey = previousTargetSurvived &&
+                var keepCurrentPrey = previousTargetSurvived && previousTargetId != animal.Id &&
                     SpeciesProfiles.IsPlantEater(previousPrey.Species) &&
                     previousPrey.Traits.Size <= animal.Traits.Size &&
                     Math.Abs(previousPrey.X - animal.X) + Math.Abs(previousPrey.Y - animal.Y) <= animal.Traits.Vision * 3;
                 animal.TargetEntityId = keepCurrentPrey
                     ? previousTargetId
-                    : SpatialIndex.FindNearestPlantEater(Entities, animal.X, animal.Y, animal.Traits.Vision * 2, animal.Traits.Size);
+                    : SpatialIndex.FindNearestPlantEater(Entities, animal.X, animal.Y, animal.Traits.Vision * 2, animal.Traits.Size, animal.Id);
                 if (animal.TargetEntityId != 0)
                 {
                     var prey = Entities.GetById(animal.TargetEntityId);
@@ -386,7 +414,7 @@ public sealed class WorldSimulation
         for (var id = 1; id <= Entities.Count; id++)
         {
             ref var predator = ref Entities.GetById(id);
-            if (!predator.IsAlive || !SpeciesProfiles.For(predator.Species).HuntsPrey || predator.TargetEntityId == 0)
+            if (!predator.IsAlive || !SpeciesProfiles.For(predator.Species).HuntsPrey || predator.TargetEntityId == 0 || predator.TargetEntityId == predator.Id)
             {
                 continue;
             }
@@ -404,7 +432,7 @@ public sealed class WorldSimulation
                     HuntingTelemetry?.RecordCarcassCreated(SpeciesProfiles.For(prey.Species).CarcassNutrition, killedByPredator: true);
                     prey.CarcassCreated = true;
                     Lineages.RecordDeath(prey.Id, Tick, prey.X, prey.Y);
-                    HuntingTelemetry?.RecordKill(predator.Id, Tick);
+                    HuntingTelemetry?.RecordKill(predator.Id, prey.Species, Tick);
                 }
             }
         }
@@ -421,16 +449,17 @@ public sealed class WorldSimulation
             }
 
             var profile = SpeciesProfiles.For(animal.Species);
-            if (profile.Diet.HasFlag(Diet.Carcasses) && TryEatCarcass(ref animal))
+            if (profile.Diet.HasFlag(Diet.Carcasses) && animal.Energy < SatiatedEnergy(profile) && TryEatCarcass(ref animal))
             {
                 continue;
             }
 
-            if (profile.Diet.HasFlag(Diet.Plants))
+            if (profile.Diet.HasFlag(Diet.Plants) && (!profile.HuntsPrey || animal.Energy < SatiatedEnergy(profile)))
             {
                 ref var cell = ref World.CellAt(animal.X, animal.Y);
                 var eaten = Math.Min(10 + animal.Traits.Size * 4 + animal.Traits.Metabolism * 2, cell.PlantBiomass);
                 cell.PlantBiomass -= eaten;
+                ResourceTelemetry?.RecordConsumption(animal.Species, eaten);
                 cell.HabitatPressure = Math.Min(1_000, cell.HabitatPressure + eaten * 5);
                 animal.Energy += eaten * (100 + animal.Traits.Metabolism * 5) / 100;
             }
@@ -452,7 +481,7 @@ public sealed class WorldSimulation
             HuntingTelemetry?.RecordCarcassConsumed(eaten);
             var energyGained = eaten * (100 + animal.Traits.Metabolism * 5) / 100;
             animal.Energy += energyGained;
-            if (SpeciesProfiles.For(animal.Species).HuntsPrey && eaten > 0)
+            if (eaten > 0)
                 HuntingTelemetry?.RecordMeal(animal.Id, energyGained, Tick);
             return eaten > 0;
         }
@@ -561,16 +590,23 @@ public sealed class WorldSimulation
         var bounds = SpeciesProfiles.For(Entities.GetById(childId).Species);
         return new AnimalTraits
         {
-            Speed = Mutate((mother.Speed + father.Speed) / 2, bounds.MinimumTraits.Speed, bounds.MaximumTraits.Speed, childId, 50),
-            Metabolism = Mutate((mother.Metabolism + father.Metabolism) / 2, bounds.MinimumTraits.Metabolism, bounds.MaximumTraits.Metabolism, childId, 51),
-            Vision = Mutate((mother.Vision + father.Vision) / 2, bounds.MinimumTraits.Vision, bounds.MaximumTraits.Vision, childId, 52),
-            Size = Mutate((mother.Size + father.Size) / 2, bounds.MinimumTraits.Size, bounds.MaximumTraits.Size, childId, 53),
-            Fertility = Mutate((mother.Fertility + father.Fertility) / 2, bounds.MinimumTraits.Fertility, bounds.MaximumTraits.Fertility, childId, 54),
+            Speed = Mutate(InheritValue(mother.Speed, father.Speed, childId, 50), bounds.MinimumTraits.Speed, bounds.MaximumTraits.Speed, childId, 50),
+            Metabolism = Mutate(InheritValue(mother.Metabolism, father.Metabolism, childId, 51), bounds.MinimumTraits.Metabolism, bounds.MaximumTraits.Metabolism, childId, 51),
+            Vision = Mutate(InheritValue(mother.Vision, father.Vision, childId, 52), bounds.MinimumTraits.Vision, bounds.MaximumTraits.Vision, childId, 52),
+            Size = Mutate(InheritValue(mother.Size, father.Size, childId, 53), bounds.MinimumTraits.Size, bounds.MaximumTraits.Size, childId, 53),
+            Fertility = Mutate(InheritValue(mother.Fertility, father.Fertility, childId, 54), bounds.MinimumTraits.Fertility, bounds.MaximumTraits.Fertility, childId, 54),
         };
     }
 
     private int Between(int minimum, int maximum, int id, uint stream) =>
         minimum + (int)(DeterministicHash.At(World.Settings.Seed, id, 0, stream) % (uint)(maximum - minimum + 1));
+
+    private int InheritValue(int mother, int father, int childId, uint stream)
+    {
+        var sum = mother + father;
+        var rounding = (sum & 1) == 0 ? 0 : (int)(DeterministicHash.At(World.Settings.Seed, childId, (int)Tick, stream + 100) & 1);
+        return sum / 2 + rounding;
+    }
 
     private static int CreateGroupId(AnimalSpecies species, int x, int y) =>
         ((int)species + 1) * 1_000_000 + (x / 16) * 1_000 + y / 16;
@@ -612,8 +648,10 @@ public sealed class WorldSimulation
     private static int MetabolicCost(AnimalState animal)
     {
         var traitCost = animal.Traits.Speed + animal.Traits.Metabolism + animal.Traits.Vision / 3 + animal.Traits.Size + animal.Traits.Fertility / 2;
-        return SpeciesProfiles.For(animal.Species).HuntsPrey ? 1 + traitCost / 8 : 1 + traitCost;
+        return SpeciesProfiles.For(animal.Species).Diet.HasFlag(Diet.Carcasses) ? 1 + traitCost / 8 : 1 + traitCost;
     }
+
+    private static int SatiatedEnergy(SpeciesProfile profile) => profile.StartingEnergy * 3;
 
     private void ResolveLifecycleAndDeaths()
     {
@@ -627,6 +665,8 @@ public sealed class WorldSimulation
 
             if (!animal.IsAlive && !animal.CarcassCreated)
             {
+                if (SpeciesProfiles.IsPlantEater(animal.Species) && animal.Energy <= 0)
+                    ResourceTelemetry?.RecordHerbivoreStarvation();
                 if (SpeciesProfiles.For(animal.Species).HuntsPrey && animal.Energy <= 0)
                     HuntingTelemetry?.RecordStarvation(animal.Id);
                 Carcasses.Add(animal.Species, animal.X, animal.Y);

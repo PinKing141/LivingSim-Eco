@@ -69,6 +69,29 @@ public sealed class ReproductionTests
         Assert.Equal(SimulationStateHasher.Hash(first), SimulationStateHasher.Hash(second));
     }
 
+    [Fact]
+    public void WellFedPredatorFemale_ApproachesReadyMaleBeforeReproducing()
+    {
+        var simulation = HeadlessWorldRunner.Create(new WorldSettings(Seed: 1, Width: 32, Height: 24));
+        var femaleId = simulation.SpawnAnimal(AnimalSpecies.Predator, 2, 2);
+        var maleId = simulation.SpawnAnimal(AnimalSpecies.Predator, 22, 2);
+        ref var female = ref simulation.Entities.GetById(femaleId);
+        female.Sex = AnimalSex.Female;
+        female.AgeTicks = 300;
+        female.Energy = 1_000;
+        female.Traits = new AnimalTraits { Speed = 2, Metabolism = 1, Vision = 6, Size = 3, Fertility = 1 };
+        ref var male = ref simulation.Entities.GetById(maleId);
+        male.Sex = AnimalSex.Male;
+        male.AgeTicks = 300;
+        male.Energy = 1_000;
+        male.Traits = female.Traits;
+
+        simulation.Advance(5);
+
+        Assert.True(simulation.Entities.GetById(femaleId).X > 2);
+        Assert.True(simulation.Entities.Count > 2);
+    }
+
     private static (int MotherId, int FatherId) ConfigurePair(WorldSimulation simulation, int ageTicks, int energy)
     {
         var motherId = simulation.SpawnAnimal(AnimalSpecies.Herbivore, 2, 2);

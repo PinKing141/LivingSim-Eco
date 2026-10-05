@@ -2,10 +2,41 @@ using LivingSim.Core;
 using LivingSim.Observation;
 
 var options = HeadlessOptions.Parse(args);
+if (options.EvolutionGate)
+{
+    foreach (var mode in new[] { ClimateMode.MildConstant, ClimateMode.DroughtConstant, ClimateMode.AbundanceConstant })
+    {
+        var evolution = EvolutionGateRunner.Run(options.Settings.Seed, mode, options.Ticks);
+        Console.WriteLine($"gate=9 seed={evolution.Seed} mode={mode} ticks={evolution.Ticks} population={evolution.Initial.Population}->{evolution.Final.Population} births={evolution.Births} mature={evolution.MatureOffspring} generation={evolution.MaximumGeneration} inheritance-violations={evolution.InheritanceViolations} bound-violations={evolution.TraitBoundViolations} seconds={evolution.ElapsedSeconds:F2} state={evolution.StateHash}");
+        PrintTraits("initial", evolution.Initial);
+        PrintTraits("final", evolution.Final);
+    }
+    return;
+}
+static void PrintTraits(string stage, TraitDistribution traits)
+{
+    static string Values(IReadOnlyDictionary<int, int> values) => string.Join(',', values.OrderBy(entry => entry.Key).Select(entry => $"{entry.Key}:{entry.Value}"));
+    Console.WriteLine($"traits stage={stage} speed={Values(traits.Speed)} metabolism={Values(traits.Metabolism)} vision={Values(traits.Vision)} size={Values(traits.Size)} fertility={Values(traits.Fertility)}");
+}
+if (options.FoodWebGate)
+{
+    foreach (var expanded in new[] { false, true })
+    {
+        var web = FoodWebGateRunner.Run(options.Settings.Seed, expanded, options.Ticks);
+        Console.WriteLine($"gate=8 seed={web.Seed} expanded={web.Expanded} ticks={web.Ticks} biomass={web.FinalBiomass} seconds={web.ElapsedSeconds:F2} state={web.StateHash}");
+        foreach (var species in web.Species)
+            Console.WriteLine($"species={species.Species} population={species.Initial}->{species.Final} births={species.Births} generation={species.MaxGeneration} kills={species.Kills} prey-killed={string.Join(',', species.KillsByPreySpecies.OrderBy(entry => entry.Key).Select(entry => $"{entry.Key}:{entry.Value}"))} carcass-meals={species.CarcassMeals} plant-consumed={species.PlantConsumed}");
+    }
+    return;
+}
 if (options.PredatorReproductionGate)
 {
     var reproduction = PredatorReproductionRunner.Run(options.Settings.Seed, options.Ticks, options.Herbivores, options.Settings.Width, options.Settings.Height, options.Predators);
     Console.WriteLine($"gate=4 seed={reproduction.Seed} ticks={reproduction.Ticks} predators={reproduction.InitialPredators}->{reproduction.FinalPredators} living-sex={reproduction.LivingFemales}F/{reproduction.LivingMales}M peak={reproduction.PeakPredators} extinct={reproduction.PredatorExtinctionTick?.ToString() ?? "never"} prey={reproduction.FinalPrey} prey-low={reproduction.LowestPrey} births={reproduction.Births} last-birth={reproduction.LastBirthTick} mature-offspring={reproduction.OffspringReachedMaturity} max-generation={reproduction.MaximumGeneration} juvenile-deaths={reproduction.JuvenileDeaths} juvenile-starvation={reproduction.JuvenileStarvationDeaths} adult-deaths={reproduction.AdultDeaths} starvation={reproduction.StarvationDeaths} eligible-female-samples={reproduction.EligibleFemaleSamples} compatible-samples={reproduction.CompatibleMateSamples} kills={reproduction.Kills} seconds={reproduction.ElapsedSeconds:F2} state={reproduction.StateHash}");
+    foreach (var sample in reproduction.Samples)
+        Console.WriteLine($"sample tick={sample.Tick} predators={sample.Predators} prey={sample.Prey} sex={sample.FemalePredators}F/{sample.MalePredators}M adults={sample.Adults} births={sample.Births} kills={sample.Kills} mean-energy={sample.MeanEnergy:F0} nearby-eligible-prey={sample.MeanNearbyEligiblePrey:F1} biomass={sample.Biomass} depleted-cells={sample.DepletedCells} plant-consumed={sample.PlantConsumed} plant-regenerated={sample.PlantRegenerated} herbivore-starvation={sample.HerbivoreStarvationDeaths} biomass-regions={sample.NorthwestBiomass},{sample.NortheastBiomass},{sample.SouthwestBiomass},{sample.SoutheastBiomass}");
+    foreach (var outcome in reproduction.SizeOutcomes)
+        Console.WriteLine($"predator-size={outcome.Size} born={outcome.Born} matured={outcome.Matured} alive={outcome.Alive} starved={outcome.Starved} kills={outcome.Kills}");
     return;
 }
 if (options.PredatorGate)
@@ -69,7 +100,7 @@ if (options.SavePath is not null)
     Console.WriteLine($"saved={Path.GetFullPath(options.SavePath)}");
 }
 
-internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate, bool PreyGate, bool PredatorGate, bool PredatorReproductionGate)
+internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate, bool PreyGate, bool PredatorGate, bool PredatorReproductionGate, bool FoodWebGate, bool EvolutionGate)
 {
     public static HeadlessOptions Parse(string[] args)
     {
@@ -89,6 +120,8 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
         var preyGate = false;
         var predatorGate = false;
         var predatorReproductionGate = false;
+        var foodWebGate = false;
+        var evolutionGate = false;
         string? savePath = null;
         string? loadPath = null;
         string? benchmark = null;
@@ -122,6 +155,18 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
             if (args[index] == "--predator-reproduction-gate")
             {
                 predatorReproductionGate = true;
+                index++;
+                continue;
+            }
+            if (args[index] == "--foodweb-gate")
+            {
+                foodWebGate = true;
+                index++;
+                continue;
+            }
+            if (args[index] == "--evolution-gate")
+            {
+                evolutionGate = true;
                 index++;
                 continue;
             }
@@ -163,6 +208,6 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
             index += 2;
         }
 
-        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate, preyGate, predatorGate, predatorReproductionGate);
+        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate, preyGate, predatorGate, predatorReproductionGate, foodWebGate, evolutionGate);
     }
 }

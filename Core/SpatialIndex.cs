@@ -34,13 +34,13 @@ public sealed class SpatialIndex
         }
     }
 
-    public int FindNearestPlantEater(EntityStore entities, int x, int y, int radius, int hunterSize)
-        => FindNearest(entities, x, y, radius, hunterSize, species: null, sex: null);
+    public int FindNearestPlantEater(EntityStore entities, int x, int y, int radius, int hunterSize, int hunterId)
+        => FindNearest(entities, x, y, radius, hunterSize, species: null, sex: null, excludeId: hunterId);
 
     public int FindNearestMate(EntityStore entities, int x, int y, int radius, AnimalSpecies species, AnimalSex requiredSex)
-        => FindNearest(entities, x, y, radius, int.MaxValue, species, requiredSex);
+        => FindNearest(entities, x, y, radius, int.MaxValue, species, requiredSex, excludeId: 0);
 
-    private int FindNearest(EntityStore entities, int x, int y, int radius, int hunterSize, AnimalSpecies? species, AnimalSex? sex)
+    private int FindNearest(EntityStore entities, int x, int y, int radius, int hunterSize, AnimalSpecies? species, AnimalSex? sex, int excludeId)
     {
         var minimumX = Math.Max(0, (x - radius) / BucketSize);
         var maximumX = Math.Min(_bucketColumns - 1, (x + radius) / BucketSize);
@@ -56,10 +56,11 @@ public sealed class SpatialIndex
                 foreach (var candidateId in _buckets[bucketY * _bucketColumns + bucketX])
                 {
                     var candidate = entities.GetById(candidateId);
-                    if (!candidate.IsAlive ||
+                    if (!candidate.IsAlive || candidate.Id == excludeId ||
                         (species.HasValue ? candidate.Species != species.Value : !SpeciesProfiles.IsPlantEater(candidate.Species)) ||
                         candidate.Traits.Size > hunterSize ||
-                        (sex.HasValue && candidate.Sex != sex.Value))
+                        (sex.HasValue && (candidate.Sex != sex.Value || candidate.AgeTicks < 200 ||
+                            candidate.Energy < 80 || candidate.ReproductionCooldown != 0)))
                     {
                         continue;
                     }

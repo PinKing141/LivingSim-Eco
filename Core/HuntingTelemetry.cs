@@ -43,10 +43,11 @@ public sealed class HuntingTelemetry
     }
     internal void RecordMovement(int predatorId, int distance) => For(predatorId).DistanceTravelled += distance;
     internal void RecordAttack(int predatorId) => For(predatorId).Attacks++;
-    internal void RecordKill(int predatorId, long tick)
+    internal void RecordKill(int predatorId, AnimalSpecies preySpecies, long tick)
     {
         var stats = For(predatorId);
         stats.Kills++;
+        stats.RecordKilledSpecies(preySpecies);
         stats.CompletePursuit(tick);
     }
     internal void RecordMeal(int predatorId, int energy, long tick)
@@ -68,6 +69,8 @@ public sealed class HuntingTelemetry
 
 public sealed class PredatorHuntStats
 {
+    private readonly Dictionary<AnimalSpecies, int> _killsByPreySpecies = [];
+    public IReadOnlyDictionary<AnimalSpecies, int> KillsByPreySpecies => _killsByPreySpecies;
     public int PreyDetections { get; internal set; }
     public int PursuitsStarted { get; internal set; }
     public int AbandonedPursuits { get; internal set; }
@@ -86,6 +89,11 @@ public sealed class PredatorHuntStats
     private long _pursuitStartTick = -1;
 
     internal void StartPursuit(long tick) => _pursuitStartTick = tick;
+    internal void RecordKilledSpecies(AnimalSpecies species)
+    {
+        _killsByPreySpecies.TryGetValue(species, out var previous);
+        _killsByPreySpecies[species] = previous + 1;
+    }
 
     internal void CompletePursuit(long tick)
     {

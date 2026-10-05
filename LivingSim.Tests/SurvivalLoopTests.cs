@@ -98,6 +98,51 @@ public sealed class SurvivalLoopTests
     }
 
     [Fact]
+    public void LoneOmnivore_CannotTargetOrAttackItself()
+    {
+        var simulation = CreateUniformWorld();
+        var omnivoreId = simulation.SpawnAnimal(AnimalSpecies.Omnivore, 2, 2);
+
+        simulation.Advance(20);
+
+        var omnivore = simulation.Entities.GetById(omnivoreId);
+        Assert.True(omnivore.IsAlive);
+        Assert.NotEqual(omnivoreId, omnivore.TargetEntityId);
+        Assert.Equal(SpeciesProfiles.For(AnimalSpecies.Omnivore).StartingHealth, omnivore.Health);
+    }
+
+    [Fact]
+    public void Scavenger_CanSurviveLongEnoughToFindIntermittentCarrion()
+    {
+        var simulation = CreateUniformWorld();
+        var scavengerId = simulation.SpawnAnimal(AnimalSpecies.Scavenger, 2, 2);
+        ref var scavenger = ref simulation.Entities.GetById(scavengerId);
+        scavenger.Traits = new AnimalTraits { Speed = 1, Metabolism = 1, Vision = 4, Size = 1, Fertility = 1 };
+
+        simulation.Advance(50);
+
+        Assert.True(simulation.Entities.GetById(scavengerId).IsAlive);
+    }
+
+    [Fact]
+    public void SatiatedPredator_DoesNotHoardNearbyCarrionOrStartAnotherHunt()
+    {
+        var simulation = CreateUniformWorld();
+        var carcassPreyId = simulation.SpawnAnimal(AnimalSpecies.Herbivore, 2, 2);
+        simulation.Entities.SetEnergy(carcassPreyId, 0);
+        simulation.Advance();
+        var nutritionBefore = simulation.Carcasses.Items[0].Nutrition;
+        simulation.SpawnAnimal(AnimalSpecies.Herbivore, 4, 2);
+        var predatorId = simulation.SpawnAnimal(AnimalSpecies.Predator, 2, 2);
+        simulation.Entities.SetEnergy(predatorId, 2_400);
+
+        simulation.Advance();
+
+        Assert.Equal(0, simulation.Entities.GetById(predatorId).TargetEntityId);
+        Assert.Equal(nutritionBefore - 1, simulation.Carcasses.Items[0].Nutrition);
+    }
+
+    [Fact]
     public void SameSeedAndPopulation_ProducesSameFullStateAfterTicks()
     {
         var settings = new WorldSettings(Seed: 919, Width: 32, Height: 24);
