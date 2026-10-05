@@ -14,6 +14,16 @@ if (options.EvolutionGate)
     }
     return;
 }
+if (options.ClimateGate)
+{
+    foreach (var mode in new[] { ClimateMode.MildConstant, ClimateMode.DroughtConstant, ClimateMode.AbundanceConstant, ClimateMode.Dynamic })
+    {
+        var witnessTicks = mode == ClimateMode.DroughtConstant ? Math.Min(options.Ticks, 12_000) : options.Ticks;
+        var climate = ClimateGateRunner.Run(options.Settings.Seed, mode, witnessTicks);
+        Console.WriteLine($"gate=10 seed={climate.Seed} mode={climate.Mode} ticks={climate.Ticks} herbivores={climate.InitialHerbivores}->{climate.FinalHerbivores} low={climate.HerbivoreLow} births={climate.HerbivoreBirths} generation={climate.MaximumGeneration} biomass={climate.InitialBiomass}->{climate.FinalBiomass} biomass-range={climate.MinimumBiomass}-{climate.MaximumBiomass} climate-range={climate.MinimumClimateIndex}-{climate.MaximumClimateIndex} transitions={climate.ClimateTransitions} seconds={climate.ElapsedSeconds:F2} state={climate.StateHash}");
+    }
+    return;
+}
 static void PrintTraits(string stage, TraitDistribution traits)
 {
     static string Values(IReadOnlyDictionary<int, int> values) => string.Join(',', values.OrderBy(entry => entry.Key).Select(entry => $"{entry.Key}:{entry.Value}"));
@@ -101,7 +111,7 @@ if (options.SavePath is not null)
     Console.WriteLine($"saved={Path.GetFullPath(options.SavePath)}");
 }
 
-internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate, bool PreyGate, bool PredatorGate, bool PredatorReproductionGate, bool FoodWebGate, bool EvolutionGate)
+internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate, bool PreyGate, bool PredatorGate, bool PredatorReproductionGate, bool FoodWebGate, bool EvolutionGate, bool ClimateGate)
 {
     public static HeadlessOptions Parse(string[] args)
     {
@@ -123,6 +133,7 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
         var predatorReproductionGate = false;
         var foodWebGate = false;
         var evolutionGate = false;
+        var climateGate = false;
         string? savePath = null;
         string? loadPath = null;
         string? benchmark = null;
@@ -171,6 +182,12 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
                 index++;
                 continue;
             }
+            if (args[index] == "--climate-gate")
+            {
+                climateGate = true;
+                index++;
+                continue;
+            }
 
             if (index + 1 >= args.Length)
             {
@@ -209,6 +226,6 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
             index += 2;
         }
 
-        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate, preyGate, predatorGate, predatorReproductionGate, foodWebGate, evolutionGate);
+        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate, preyGate, predatorGate, predatorReproductionGate, foodWebGate, evolutionGate, climateGate);
     }
 }
