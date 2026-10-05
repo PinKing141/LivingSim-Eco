@@ -6,6 +6,7 @@ public static class SimulationStateHasher
     {
         ulong hash = 14695981039346656037UL;
         Add(ref hash, WorldStateHasher.Hash(simulation.World, simulation.Tick));
+        Add(ref hash, (int)simulation.ClimateMode);
         Add(ref hash, (int)simulation.Climate.Season);
         Add(ref hash, simulation.Climate.ClimateIndexMilli);
         Add(ref hash, simulation.Climate.BiomassModifierMilli);

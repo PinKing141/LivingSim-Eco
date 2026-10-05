@@ -2,16 +2,16 @@ namespace LivingSim.Core;
 
 public static class HeadlessWorldRunner
 {
-    public static WorldSimulation Create(WorldSettings settings) => new(WorldGenerator.Generate(settings));
+    public static WorldSimulation Create(WorldSettings settings, ClimateMode climateMode = ClimateMode.Dynamic) => new(WorldGenerator.Generate(settings), climateMode);
 
-    public static WorldSimulation CreatePopulated(WorldSettings settings, int herbivores, int predators)
+    public static WorldSimulation CreatePopulated(WorldSettings settings, int herbivores, int predators, ClimateMode climateMode = ClimateMode.Dynamic)
     {
         if (herbivores < 0 || predators < 0)
         {
             throw new ArgumentOutOfRangeException("Population counts cannot be negative.");
         }
 
-        var simulation = Create(settings);
+        var simulation = Create(settings, climateMode);
         SpawnPopulation(simulation, AnimalSpecies.Herbivore, herbivores, stream: 10);
         SpawnPredatorsNearHerbivores(simulation, predators, herbivores);
         return simulation;

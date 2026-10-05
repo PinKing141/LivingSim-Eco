@@ -2,6 +2,24 @@ using LivingSim.Core;
 using LivingSim.Observation;
 
 var options = HeadlessOptions.Parse(args);
+if (options.PredatorReproductionGate)
+{
+    var reproduction = PredatorReproductionRunner.Run(options.Settings.Seed, options.Ticks, options.Herbivores, options.Settings.Width, options.Settings.Height, options.Predators);
+    Console.WriteLine($"gate=4 seed={reproduction.Seed} ticks={reproduction.Ticks} predators={reproduction.InitialPredators}->{reproduction.FinalPredators} living-sex={reproduction.LivingFemales}F/{reproduction.LivingMales}M peak={reproduction.PeakPredators} extinct={reproduction.PredatorExtinctionTick?.ToString() ?? "never"} prey={reproduction.FinalPrey} prey-low={reproduction.LowestPrey} births={reproduction.Births} last-birth={reproduction.LastBirthTick} mature-offspring={reproduction.OffspringReachedMaturity} max-generation={reproduction.MaximumGeneration} juvenile-deaths={reproduction.JuvenileDeaths} juvenile-starvation={reproduction.JuvenileStarvationDeaths} adult-deaths={reproduction.AdultDeaths} starvation={reproduction.StarvationDeaths} eligible-female-samples={reproduction.EligibleFemaleSamples} compatible-samples={reproduction.CompatibleMateSamples} kills={reproduction.Kills} seconds={reproduction.ElapsedSeconds:F2} state={reproduction.StateHash}");
+    return;
+}
+if (options.PredatorGate)
+{
+    var hunt = PredatorSurvivalRunner.Run(options.Settings.Seed, options.Ticks, options.Herbivores, options.Settings.Width, options.Settings.Height);
+    Console.WriteLine($"gate=2 seed={hunt.Seed} ticks={hunt.Ticks} traits=size{hunt.InitialPredatorTraits.Size}/vision{hunt.InitialPredatorTraits.Vision}/speed{hunt.InitialPredatorTraits.Speed}/metabolism{hunt.InitialPredatorTraits.Metabolism} eligible-prey={hunt.EligiblePreyAtStart} nearby-eligible={hunt.NearbyEligiblePreyAtStart} alive={hunt.PredatorSurvived} energy={hunt.PredatorFinalEnergy} predator-births={hunt.PredatorBirths} prey={hunt.PreyAtEnd} detections={hunt.PreyDetections} pursuits={hunt.PursuitsStarted} abandoned={hunt.AbandonedPursuits} attacks={hunt.Attacks} kills={hunt.Kills} meals={hunt.Meals} upkeep={hunt.MetabolicEnergySpent} pursuit-upkeep={hunt.PursuitEnergySpent} direct-move-cost={hunt.DirectMovementEnergySpent} direct-combat-cost={hunt.DirectCombatEnergySpent} carcass-gain={hunt.CarcassEnergyGained} carcass-created={hunt.CarcassNutritionCreated} kill-carcass-created={hunt.KillCarcassNutritionCreated} carcass-consumed={hunt.CarcassNutritionConsumed} carcass-decayed={hunt.CarcassNutritionDecayed} carcass-remaining={hunt.CarcassNutritionRemaining} distance={hunt.DistanceTravelled} starvation-deaths={hunt.StarvationDeaths} ticks-between-meals={hunt.MeanTicksBetweenMeals:F1} pursuit-duration={hunt.MeanCompletedPursuitTicks:F1} seconds={hunt.ElapsedSeconds:F2} state={hunt.StateHash}");
+    return;
+}
+if (options.PreyGate)
+{
+    var prey = PreyViabilityRunner.Run(options.Settings.Seed, options.Ticks, options.Herbivores, options.Settings.Width, options.Settings.Height);
+    Console.WriteLine($"gate=1 seed={prey.Seed} ticks={prey.Ticks} prey={prey.InitialPopulation}->{prey.FinalPopulation} range={prey.LowestPopulation}-{prey.HighestPopulation} births={prey.Births} mature-offspring={prey.OffspringReachedMaturity} max-generation={prey.MaximumGeneration} starvation={prey.StarvationDeaths} age-deaths={prey.AgeDeaths} depleted-cells={prey.DepletedCells} recovered-cells={prey.RecoveredCells} max-pressure={prey.MaximumHabitatPressure} biomass={prey.InitialBiomass}->{prey.FinalBiomass} seconds={prey.ElapsedSeconds:F2} state={prey.StateHash}");
+    return;
+}
 if (options.FoundationGate)
 {
     var gate = FoundationGateRunner.Run(options.Settings.Seed, options.Ticks, options.Herbivores, options.Predators, options.Settings.Width, options.Settings.Height);
@@ -51,7 +69,7 @@ if (options.SavePath is not null)
     Console.WriteLine($"saved={Path.GetFullPath(options.SavePath)}");
 }
 
-internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate)
+internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate, bool PreyGate, bool PredatorGate, bool PredatorReproductionGate)
 {
     public static HeadlessOptions Parse(string[] args)
     {
@@ -68,6 +86,9 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
         var scavengers = 0;
         var observe = false;
         var foundationGate = false;
+        var preyGate = false;
+        var predatorGate = false;
+        var predatorReproductionGate = false;
         string? savePath = null;
         string? loadPath = null;
         string? benchmark = null;
@@ -83,6 +104,24 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
             if (args[index] == "--foundation-gate")
             {
                 foundationGate = true;
+                index++;
+                continue;
+            }
+            if (args[index] == "--prey-gate")
+            {
+                preyGate = true;
+                index++;
+                continue;
+            }
+            if (args[index] == "--predator-gate")
+            {
+                predatorGate = true;
+                index++;
+                continue;
+            }
+            if (args[index] == "--predator-reproduction-gate")
+            {
+                predatorReproductionGate = true;
                 index++;
                 continue;
             }
@@ -124,6 +163,6 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
             index += 2;
         }
 
-        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate);
+        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate, preyGate, predatorGate, predatorReproductionGate);
     }
 }

@@ -48,6 +48,7 @@ public static class FoundationGateRunner
             var step = Math.Min(120, ticks - elapsed);
             simulation.Advance(step);
             elapsed += step;
+            SimulationInvariants.Validate(simulation);
             var currentHerbivores = simulation.Metrics.Herbivores;
             var currentPredators = simulation.Metrics.Predators;
             low = Math.Min(low, currentHerbivores);

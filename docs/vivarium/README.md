@@ -15,6 +15,8 @@ LivingSim: Vivarium is an observer-first artificial-life ecosystem simulation. A
 - [06 - Technical Architecture](06-technical-architecture.md)
 - [07 - Development Roadmap](07-development-roadmap.md)
 - [08 - Locked Decisions & Open Questions](08-decisions-and-open-questions.md)
+- [11 - Foundation Exit Gate](11-foundation-exit-gate.md)
+- [12 - Ecology Gate Ladder](12-ecology-gate-ladder.md)
 
 ## North star
 

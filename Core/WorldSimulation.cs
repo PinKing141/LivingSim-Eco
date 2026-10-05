@@ -25,10 +25,12 @@ public sealed class WorldSimulation
     private readonly Dictionary<int, PopulationGroup> _groups = [];
     private readonly Dictionary<int, GroupAccumulator> _groupAccumulators = [];
 
-    public WorldSimulation(World world)
+    public WorldSimulation(World world, ClimateMode climateMode = ClimateMode.Dynamic)
     {
         World = world;
         SpatialIndex = new SpatialIndex(world);
+        ClimateMode = climateMode;
+        Climate = ClimateModel.At(0, climateMode);
     }
 
     public World World { get; }
@@ -36,10 +38,12 @@ public sealed class WorldSimulation
     public CarcassStore Carcasses { get; } = new();
     public SpatialIndex SpatialIndex { get; }
     public long Tick { get; private set; }
-    public ClimateState Climate { get; private set; } = ClimateModel.At(0);
+    public ClimateMode ClimateMode { get; }
+    public ClimateState Climate { get; private set; }
     public ClimateHistory ClimateHistory { get; } = new();
     public LineageHistory Lineages { get; } = new();
     public NaturalHistory NaturalHistory { get; } = new();
+    public HuntingTelemetry? HuntingTelemetry { get; set; }
     public SimulationMetrics Metrics { get; private set; }
     public IReadOnlyDictionary<AnimalSpecies, int> PopulationBySpecies => _populationBySpecies;
     public IReadOnlyDictionary<int, PopulationGroup> Groups => _groups;
@@ -140,7 +144,7 @@ public sealed class WorldSimulation
 
     private void UpdateClimate()
     {
-        Climate = ClimateModel.At(Tick);
+        Climate = ClimateModel.At(Tick, ClimateMode);
     }
 
     private void ApplyMetabolism()
@@ -154,7 +158,9 @@ public sealed class WorldSimulation
             }
 
             animal.AgeTicks++;
-            animal.Energy -= MetabolicCost(animal);
+            var metabolicCost = MetabolicCost(animal);
+            animal.Energy -= metabolicCost;
+            if (SpeciesProfiles.For(animal.Species).HuntsPrey) HuntingTelemetry?.RecordMetabolism(animal.Id, metabolicCost, animal.TargetEntityId != 0);
             if (animal.ReproductionCooldown > 0)
             {
                 animal.ReproductionCooldown--;
@@ -179,15 +185,26 @@ public sealed class WorldSimulation
             var profile = SpeciesProfiles.For(animal.Species);
             if (profile.HuntsPrey)
             {
-                if (profile.Diet.HasFlag(Diet.Carcasses) && animal.Energy < profile.StartingEnergy && TryFindNearestCarcass(animal, animal.Traits.Vision * 2, out var foodX, out var foodY))
+                var previousTargetId = animal.TargetEntityId;
+                var previousTargetSurvived = previousTargetId != 0 && Entities.GetById(previousTargetId).IsAlive;
+                var carcassSearchRadius = previousTargetId == 0 ? animal.Traits.Vision * 2 : 2;
+                if (profile.Diet.HasFlag(Diet.Carcasses) && TryFindNearestCarcass(animal, carcassSearchRadius, out var foodX, out var foodY))
                 {
                     animal.TargetEntityId = 0;
                     animal.TargetX = foodX;
                     animal.TargetY = foodY;
+                    HuntingTelemetry?.RecordTarget(animal.Id, previousTargetId, 0, previousTargetSurvived, Tick);
                     continue;
                 }
 
-                animal.TargetEntityId = SpatialIndex.FindNearestPlantEater(Entities, animal.X, animal.Y, animal.Traits.Vision * 2, animal.Traits.Size);
+                var previousPrey = previousTargetSurvived ? Entities.GetById(previousTargetId) : default;
+                var keepCurrentPrey = previousTargetSurvived &&
+                    SpeciesProfiles.IsPlantEater(previousPrey.Species) &&
+                    previousPrey.Traits.Size <= animal.Traits.Size &&
+                    Math.Abs(previousPrey.X - animal.X) + Math.Abs(previousPrey.Y - animal.Y) <= animal.Traits.Vision * 3;
+                animal.TargetEntityId = keepCurrentPrey
+                    ? previousTargetId
+                    : SpatialIndex.FindNearestPlantEater(Entities, animal.X, animal.Y, animal.Traits.Vision * 2, animal.Traits.Size);
                 if (animal.TargetEntityId != 0)
                 {
                     var prey = Entities.GetById(animal.TargetEntityId);
@@ -207,6 +224,7 @@ public sealed class WorldSimulation
                 {
                     SetWanderTarget(ref animal);
                 }
+                HuntingTelemetry?.RecordTarget(animal.Id, previousTargetId, animal.TargetEntityId, previousTargetSurvived, Tick);
             }
             else if (profile.Diet.HasFlag(Diet.Carcasses) && TryFindNearestCarcass(animal, animal.Traits.Vision * 2, out var carcassX, out var carcassY))
             {
@@ -351,11 +369,15 @@ public sealed class WorldSimulation
             }
 
             var movementSteps = animal.Traits.Speed + (SpeciesProfiles.For(animal.Species).HuntsPrey ? 1 : 0);
+            var startingX = animal.X;
+            var startingY = animal.Y;
             for (var step = 0; step < movementSteps; step++)
             {
                 animal.X = Math.Clamp(animal.X + Math.Sign(animal.TargetX - animal.X), 0, World.Width - 1);
                 animal.Y = Math.Clamp(animal.Y + Math.Sign(animal.TargetY - animal.Y), 0, World.Height - 1);
             }
+            if (SpeciesProfiles.For(animal.Species).HuntsPrey)
+                HuntingTelemetry?.RecordMovement(animal.Id, Math.Abs(animal.X - startingX) + Math.Abs(animal.Y - startingY));
         }
     }
 
@@ -372,7 +394,18 @@ public sealed class WorldSimulation
             ref var prey = ref Entities.GetById(predator.TargetEntityId);
             if (prey.IsAlive && SpeciesProfiles.IsPlantEater(prey.Species) && prey.Traits.Size <= predator.Traits.Size && Math.Abs(predator.X - prey.X) + Math.Abs(predator.Y - prey.Y) <= 1)
             {
+                HuntingTelemetry?.RecordAttack(predator.Id);
+                var wasAlive = prey.Health > 0;
                 prey.Health -= 16 + predator.Traits.Size * 5 + predator.Traits.Speed;
+                if (wasAlive && prey.Health <= 0)
+                {
+                    prey.IsAlive = false;
+                    Carcasses.Add(prey.Species, prey.X, prey.Y);
+                    HuntingTelemetry?.RecordCarcassCreated(SpeciesProfiles.For(prey.Species).CarcassNutrition, killedByPredator: true);
+                    prey.CarcassCreated = true;
+                    Lineages.RecordDeath(prey.Id, Tick, prey.X, prey.Y);
+                    HuntingTelemetry?.RecordKill(predator.Id, Tick);
+                }
             }
         }
     }
@@ -416,7 +449,11 @@ public sealed class WorldSimulation
 
             var eaten = Math.Min(25, carcass.Nutrition);
             carcass.Nutrition -= eaten;
-            animal.Energy += eaten * (100 + animal.Traits.Metabolism * 5) / 100;
+            HuntingTelemetry?.RecordCarcassConsumed(eaten);
+            var energyGained = eaten * (100 + animal.Traits.Metabolism * 5) / 100;
+            animal.Energy += energyGained;
+            if (SpeciesProfiles.For(animal.Species).HuntsPrey && eaten > 0)
+                HuntingTelemetry?.RecordMeal(animal.Id, energyGained, Tick);
             return eaten > 0;
         }
 
@@ -590,7 +627,10 @@ public sealed class WorldSimulation
 
             if (!animal.IsAlive && !animal.CarcassCreated)
             {
+                if (SpeciesProfiles.For(animal.Species).HuntsPrey && animal.Energy <= 0)
+                    HuntingTelemetry?.RecordStarvation(animal.Id);
                 Carcasses.Add(animal.Species, animal.X, animal.Y);
+                HuntingTelemetry?.RecordCarcassCreated(SpeciesProfiles.For(animal.Species).CarcassNutrition, killedByPredator: false);
                 animal.CarcassCreated = true;
                 Lineages.RecordDeath(animal.Id, Tick, animal.X, animal.Y);
             }
@@ -602,7 +642,11 @@ public sealed class WorldSimulation
         for (var index = Carcasses.Count - 1; index >= 0; index--)
         {
             ref var carcass = ref Carcasses.Get(index);
-            carcass.Nutrition--;
+            if (carcass.Nutrition > 0)
+            {
+                carcass.Nutrition--;
+                HuntingTelemetry?.RecordCarcassDecayed();
+            }
             if (carcass.Nutrition <= 0)
             {
                 Carcasses.RemoveAt(index);

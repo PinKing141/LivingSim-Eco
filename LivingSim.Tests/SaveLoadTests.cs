@@ -6,6 +6,27 @@ namespace LivingSim.Tests;
 public sealed class SaveLoadTests
 {
     [Fact]
+    public void ControlledClimate_RoundTripsAndContinuesDeterministically()
+    {
+        var original = HeadlessWorldRunner.CreatePopulated(new WorldSettings(17, 20, 16), 8, 1, ClimateMode.MildConstant);
+        original.Advance(240);
+        var path = Path.Combine(Path.GetTempPath(), $"livingsim-climate-{Guid.NewGuid():N}.json");
+        try
+        {
+            SimulationSaveService.Save(original, path);
+            var loaded = SimulationSaveService.Load(path);
+            Assert.Equal(ClimateMode.MildConstant, loaded.ClimateMode);
+            original.Advance(240);
+            loaded.Advance(240);
+            Assert.Equal(SimulationStateHasher.Hash(original), SimulationStateHasher.Hash(loaded));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void SaveLoad_PreservesStateAndDeterministicContinuation()
     {
         var original = HeadlessWorldRunner.CreateFoodWeb(new WorldSettings(321, 40, 30),

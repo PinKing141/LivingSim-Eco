@@ -5,8 +5,20 @@ public static class ClimateModel
     public const int TicksPerSeason = 120;
     public const int ClimatePeriodTicks = 8_000;
 
-    public static ClimateState At(long tick)
+    public static ClimateState At(long tick, ClimateMode mode = ClimateMode.Dynamic)
     {
+        if (mode != ClimateMode.Dynamic)
+        {
+            var index = mode switch
+            {
+                ClimateMode.MildConstant => 0,
+                ClimateMode.DroughtConstant => -1_000,
+                ClimateMode.AbundanceConstant => 1_000,
+                _ => throw new ArgumentOutOfRangeException(nameof(mode)),
+            };
+            return new ClimateState(tick, Season.Spring, index, 1_000 + index / 2);
+        }
+
         var season = (Season)((tick / TicksPerSeason) % 4);
         var phase = (int)(tick % ClimatePeriodTicks);
         var halfPeriod = ClimatePeriodTicks / 2;

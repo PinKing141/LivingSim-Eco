@@ -39,7 +39,7 @@ public sealed class SurvivalLoopTests
         var predatorId = simulation.SpawnAnimal(AnimalSpecies.Predator, 2, 3);
         ConfigureForCloseCombat(simulation, preyId, predatorId);
 
-        simulation.Advance(6);
+        simulation.Advance(3);
 
         Assert.False(simulation.Entities.GetById(preyId).IsAlive);
         Assert.Equal(1, simulation.Carcasses.Count);
@@ -66,10 +66,10 @@ public sealed class SurvivalLoopTests
         var predatorId = simulation.SpawnAnimal(AnimalSpecies.Predator, 2, 3);
         ConfigureForCloseCombat(simulation, preyId, predatorId);
 
-        simulation.Advance(6);
+        simulation.Advance(3);
 
         Assert.False(simulation.Entities.GetById(preyId).IsAlive);
-        Assert.True(simulation.Entities.GetById(predatorId).Energy > 114);
+        Assert.True(simulation.Entities.GetById(predatorId).Energy > SpeciesProfiles.For(AnimalSpecies.Predator).StartingEnergy);
         Assert.True(simulation.Carcasses.Items[0].Nutrition < 119);
 
         var decaySimulation = CreateUniformWorld();
@@ -77,6 +77,24 @@ public sealed class SurvivalLoopTests
         decaySimulation.Entities.SetEnergy(starvingHerbivore, 0);
         decaySimulation.Advance(130);
         Assert.Equal(0, decaySimulation.Carcasses.Count);
+    }
+
+    [Fact]
+    public void WellFedPredator_FinishesNearbyCarcassBeforeStartingAnotherHunt()
+    {
+        var simulation = CreateUniformWorld();
+        var carcassPreyId = simulation.SpawnAnimal(AnimalSpecies.Herbivore, 2, 2);
+        simulation.Entities.SetEnergy(carcassPreyId, 0);
+        simulation.Advance();
+        var nutritionBefore = simulation.Carcasses.Items[0].Nutrition;
+        simulation.SpawnAnimal(AnimalSpecies.Herbivore, 4, 2);
+        var predatorId = simulation.SpawnAnimal(AnimalSpecies.Predator, 2, 2);
+        simulation.Entities.SetEnergy(predatorId, SpeciesProfiles.For(AnimalSpecies.Predator).StartingEnergy * 2 + 100);
+
+        simulation.Advance();
+
+        Assert.Equal(0, simulation.Entities.GetById(predatorId).TargetEntityId);
+        Assert.True(simulation.Carcasses.Items[0].Nutrition <= nutritionBefore - 25);
     }
 
     [Fact]

@@ -4,7 +4,7 @@ namespace LivingSim.Core;
 
 public static class SimulationSaveService
 {
-    public const int CurrentFormatVersion = 1;
+    public const int CurrentFormatVersion = 2;
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -28,6 +28,7 @@ public static class SimulationSaveService
             Settings = simulation.World.Settings,
             Tick = simulation.Tick,
             Climate = simulation.Climate,
+            ClimateMode = simulation.ClimateMode,
             Cells = simulation.World.Cells.ToArray(),
             Animals = simulation.Entities.Items.ToArray(),
             Carcasses = simulation.Carcasses.Items.ToArray(),
@@ -55,7 +56,8 @@ public static class SimulationSaveService
         if (snapshot.Tick < 0 || snapshot.Cells.Length != snapshot.Settings.Width * snapshot.Settings.Height)
             throw new InvalidDataException("The save's world dimensions or tick are invalid.");
 
-        var simulation = new WorldSimulation(new World(snapshot.Settings, snapshot.Cells));
+        if (!Enum.IsDefined(snapshot.ClimateMode)) throw new InvalidDataException("The save's climate mode is invalid.");
+        var simulation = new WorldSimulation(new World(snapshot.Settings, snapshot.Cells), snapshot.ClimateMode);
         simulation.Restore(snapshot.Tick, snapshot.Climate, snapshot.Animals, snapshot.Carcasses, snapshot.ClimateHistory, snapshot.LineageRecords, snapshot.NaturalHistory);
         return simulation;
     }
