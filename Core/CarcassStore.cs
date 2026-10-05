@@ -12,10 +12,16 @@ public sealed class CarcassStore
         Species = species,
         X = x,
         Y = y,
-        Nutrition = species == AnimalSpecies.Herbivore ? 60 : 90,
+        Nutrition = SpeciesProfiles.For(species).CarcassNutrition,
     });
 
     internal ref Carcass Get(int index) => ref System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_items)[index];
 
     internal void RemoveAt(int index) => _items.RemoveAt(index);
+
+    internal void Restore(IEnumerable<Carcass> carcasses)
+    {
+        _items.Clear();
+        _items.AddRange(carcasses);
+    }
 }

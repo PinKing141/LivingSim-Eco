@@ -8,4 +8,6 @@ public struct WorldCell
     public int PlantBiomass;
     public int MaxPlantBiomass;
     public int BiomassRegenerationPerTick;
+    /// <summary>Local grazing pressure, from 0 (recovered) to 1000 (depleted).</summary>
+    public int HabitatPressure;
 }

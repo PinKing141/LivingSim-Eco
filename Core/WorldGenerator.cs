@@ -24,10 +24,10 @@ public static class WorldGenerator
         return selection switch
         {
             < 12 => new WorldCell { Terrain = TerrainType.Water, Biome = BiomeType.Ocean },
-            < 24 => NewLandCell(TerrainType.Mountain, BiomeType.Alpine, 200, 1, seed, x, y),
-            < 42 => NewLandCell(TerrainType.Desert, BiomeType.Arid, 550, 2, seed, x, y),
-            < 68 => NewLandCell(TerrainType.Forest, BiomeType.TemperateForest, 1_500, 7, seed, x, y),
-            _ => NewLandCell(TerrainType.Plains, BiomeType.TemperateGrassland, 1_000, 5, seed, x, y),
+            < 24 => NewLandCell(TerrainType.Mountain, BiomeType.Alpine, 200, 2, seed, x, y),
+            < 42 => NewLandCell(TerrainType.Desert, BiomeType.Arid, 550, 4, seed, x, y),
+            < 68 => NewLandCell(TerrainType.Forest, BiomeType.TemperateForest, 1_500, 12, seed, x, y),
+            _ => NewLandCell(TerrainType.Plains, BiomeType.TemperateGrassland, 1_000, 9, seed, x, y),
         };
     }
 

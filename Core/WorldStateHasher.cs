@@ -17,6 +17,7 @@ public static class WorldStateHasher
             Add(ref hash, unchecked((uint)cell.PlantBiomass));
             Add(ref hash, unchecked((uint)cell.MaxPlantBiomass));
             Add(ref hash, unchecked((uint)cell.BiomassRegenerationPerTick));
+            Add(ref hash, unchecked((uint)cell.HabitatPressure));
         }
 
         return hash.ToString("x16", System.Globalization.CultureInfo.InvariantCulture);

@@ -18,8 +18,8 @@ public sealed class EntityStore
             Species = species,
             X = x,
             Y = y,
-            Energy = species == AnimalSpecies.Herbivore ? 80 : 120,
-            Health = species == AnimalSpecies.Herbivore ? 40 : 60,
+            Energy = 100,
+            Health = 50,
             IsAlive = true,
             TargetEntityId = 0,
             TargetX = x,
@@ -39,6 +39,21 @@ public sealed class EntityStore
     }
 
     public void SetEnergy(int id, int energy) => GetById(id).Energy = energy;
+
+    internal void Restore(IEnumerable<AnimalState> animals)
+    {
+        _count = 0;
+        foreach (var animal in animals.OrderBy(animal => animal.Id))
+        {
+            if (animal.Id != _count + 1)
+            {
+                throw new InvalidDataException("Saved animal IDs must be contiguous and start at one.");
+            }
+
+            EnsureCapacity();
+            _items[_count++] = animal;
+        }
+    }
 
     private void EnsureCapacity()
     {

@@ -5,11 +5,18 @@ public struct AnimalState
 {
     public int Id;
     public AnimalSpecies Species;
+    public AnimalSex Sex;
     public int X;
     public int Y;
     public int Energy;
     public int Health;
     public int AgeTicks;
+    public int Generation;
+    public int ParentAId;
+    public int ParentBId;
+    public int GroupId;
+    public int ReproductionCooldown;
+    public AnimalTraits Traits;
     public int TargetEntityId;
     public int TargetX;
     public int TargetY;

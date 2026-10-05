@@ -34,7 +34,13 @@ public sealed class SpatialIndex
         }
     }
 
-    public int FindNearestHerbivore(EntityStore entities, int x, int y, int radius)
+    public int FindNearestPlantEater(EntityStore entities, int x, int y, int radius, int hunterSize)
+        => FindNearest(entities, x, y, radius, hunterSize, species: null, sex: null);
+
+    public int FindNearestMate(EntityStore entities, int x, int y, int radius, AnimalSpecies species, AnimalSex requiredSex)
+        => FindNearest(entities, x, y, radius, int.MaxValue, species, requiredSex);
+
+    private int FindNearest(EntityStore entities, int x, int y, int radius, int hunterSize, AnimalSpecies? species, AnimalSex? sex)
     {
         var minimumX = Math.Max(0, (x - radius) / BucketSize);
         var maximumX = Math.Min(_bucketColumns - 1, (x + radius) / BucketSize);
@@ -50,7 +56,10 @@ public sealed class SpatialIndex
                 foreach (var candidateId in _buckets[bucketY * _bucketColumns + bucketX])
                 {
                     var candidate = entities.GetById(candidateId);
-                    if (!candidate.IsAlive || candidate.Species != AnimalSpecies.Herbivore)
+                    if (!candidate.IsAlive ||
+                        (species.HasValue ? candidate.Species != species.Value : !SpeciesProfiles.IsPlantEater(candidate.Species)) ||
+                        candidate.Traits.Size > hunterSize ||
+                        (sex.HasValue && candidate.Sex != sex.Value))
                     {
                         continue;
                     }

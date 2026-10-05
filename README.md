@@ -31,7 +31,9 @@ The Vivarium concept and development roadmap are broken down under [`docs/vivari
 
 ## Current runnable foundation
 
-Slices 1–2 provide a deterministic world with terrain, biomes, numeric plant biomass, one herbivore species, one predator species, and headless survival-loop reporting. See [RUN.md](RUN.md) for command-line usage and verification.
+Slices 1–11 provide a deterministic world with terrain, biomes, habitat pressure/recovery, inherited traits, a parameter-driven food web, lightweight herd/pack migration, deep-time climate eras, a zoomable observer shell, inspectable lineage/natural history, versioned saves, and release benchmarks. See [RUN.md](RUN.md) for command-line usage and verification.
+
+The [foundation exit gate](docs/vivarium/11-foundation-exit-gate.md) is currently **failed**: all 12 evaluated worlds lose predators early. The v0.1 simulation foundation has not been frozen.
 
 ## Legacy prototype
 

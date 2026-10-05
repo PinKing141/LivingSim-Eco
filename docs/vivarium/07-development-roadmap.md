@@ -116,6 +116,8 @@ Predator and prey populations can live and die without scripted outcomes.
 
 ## Slice 3 - Reproduction & inheritance
 
+**Status: Complete (2026-10-04).** Animals now have maturity, deterministic sex and mate selection, reproduction energy costs/cooldowns, parent IDs, generations, and bounded inheritable speed, metabolism, vision, size, and fertility traits. Higher traits improve movement, feeding efficiency, perception, combat, or reproductive cadence while increasing energy upkeep. Mutation is bounded and deterministic; headless metrics report population trait and generation averages.
+
 ### Goal
 
 Turn the survival simulation into a multi-generation system.
@@ -161,6 +163,8 @@ Populations survive for multiple generations and trait averages visibly drift ov
 
 ## Slice 4 - Ecological stability
 
+**Status: Complete (2026-10-04).** Plant biomass now receives local grazing pressure that suppresses regeneration and recovers over time; reproduction requires viable local habitat and has a slower fertility-dependent cadence. Predator pursuit includes constrained carcass-seeking. The headless runner produces sampled long-run reports with extinction, biomass depletion, runaway-population, and static-population signals. Benchmark seeds are tested for distinct short-run outcomes.
+
 ### Goal
 
 Make the small ecosystem capable of producing understandable long-term behaviour rather than immediate extinction or infinite growth.
@@ -197,6 +201,8 @@ Multiple seeds produce varied but interpretable histories including booms, crash
 
 ## Slice 5 - Broader food web
 
+**Status: Complete (2026-10-04).** The shared simulation systems now support parameter-driven species profiles: medium, large, and small herbivores; a predator and apex-predator niche; an omnivore; and a non-hunting scavenger. Profiles define diet, hunting role, resource value, and trait ranges rather than bespoke AI. Tests cover profile niche differences, biomass competition, omnivory, scavenging, and deterministic mixed-food-web runs.
+
 ### Goal
 
 Expand the ecosystem only after the two-species model is proven.
@@ -232,6 +238,8 @@ A multi-species food web produces competition, predation, scavenging, and local 
 ---
 
 ## Slice 6 - Social & population behaviour
+
+**Status: Complete (2026-10-05).** Species profiles now opt into lightweight herd or pack behaviour. Animals receive stable local group identities; the simulation exposes each group's population/range center and migration target. Separated group members cohere, while groups migrate deterministically toward richer nearby habitat once their local biomass is depleted or habitat pressure is high. No relationship memory, hierarchy, territory politics, or leadership systems were added.
 
 ### Goal
 
@@ -271,6 +279,8 @@ Populations move and organise in ways that are visually and ecologically distinc
 
 ## Slice 7 - Climate & deep time
 
+**Status: Complete (2026-10-05).** The simulation now has an integer-only deterministic climate model: four seasons, seasonal biomass modifiers, and an 8,000-tick drought-to-abundance climate cycle. Drought adds pressure to already-depleted habitat; non-drought periods recover it. Climate history samples record the active era alongside plant-eater and hunter trait averages, allowing long-run environmental and evolutionary responses to be inspected later.
+
 ### Goal
 
 Make the environment change strongly enough over long periods to create new selection pressures.
@@ -300,6 +310,8 @@ Hundreds of simulated years create recognisable environmental eras and measurabl
 ---
 
 ## Slice 8 - Observer interface
+
+**Status: Complete (2026-10-05).** A separate temporary ASCII observer layer now provides pause/resume, speed control, camera movement, biomass/habitat-pressure/population-density/climate overlays, live population and trait graphs, selection, follow mode, species counts, trait summaries, and individual inspection. It is an application/presentation layer: the deterministic simulation core has no dependency on it.
 
 ### Goal
 
@@ -334,6 +346,8 @@ A player can understand what the ecosystem is doing without being able to contro
 
 ## Slice 9 - History & lineage
 
+**Status: Complete (2026-10-05).** Birth and death records retain compact individual identity, parent IDs, generation, and locations; bounded ancestry and descendant queries are available without storing per-tick snapshots. The natural-history timeline keeps only high-value population, extinction, migration, and trait-shift milestones, retaining population-group identity and event locations. The observer shows selected-animal lineage counts, recent history, and can focus the newest event with `H`.
+
 ### Goal
 
 Allow the game to explain its own natural history.
@@ -366,6 +380,8 @@ The player can investigate not only what exists now but how the world reached it
 
 ## Slice 10 - Presentation shell
 
+**Status: Complete (2026-10-05).** The Slice 10 prototype retains a dependency-free terminal shell, documented in [Presentation shell decision](09-presentation-decision.md), while the eventual graphics framework remains open. The observer now offers four zoom levels, eased camera/animal presentation, seasonal/resource overlays, distinct species glyphs, population and inspection panels, history focus, and readable fast-forward controls while keeping the core headless.
+
 ### Goal
 
 Choose and implement the final viewing experience only after simulation and observer requirements are proven.
@@ -395,6 +411,8 @@ The simulation is pleasant to watch for long periods and readable at both ecosys
 ---
 
 ## Slice 11 - Scale, save/load & release loop
+
+**Status: Complete (2026-10-05).** Versioned JSON saves preserve the full world and history state and reject incompatible versions; reload continuation is deterministic. The release benchmark catalog covers density, coexistence, extinction, drought, evolution, migration, and save/load. Automated coverage includes a 1,000+ entity density run and a 10,000-tick headless soak; the limited first-release roster and validation commands are documented in [Release validation](10-release-validation.md).
 
 ### Goal
 
@@ -435,6 +453,8 @@ A stable build can create, run, save, reload, and revisit long-lived vivariums a
 ---
 
 # End goal of the 11-slice roadmap
+
+**Foundation exit gate: Failed (2026-10-05).** Feature slices are implemented, but the 12-seed long-run evaluation found predator extinction in every world within five simulated years. The foundation is not frozen. See [the exit gate results](11-foundation-exit-gate.md).
 
 Slices 0-11 are the **LivingSim-Eco simulation foundation and proof-of-concept milestone**. They are not the complete final game and should not continually expand to absorb every future idea.
 

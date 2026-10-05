@@ -6,6 +6,9 @@ public static class SimulationStateHasher
     {
         ulong hash = 14695981039346656037UL;
         Add(ref hash, WorldStateHasher.Hash(simulation.World, simulation.Tick));
+        Add(ref hash, (int)simulation.Climate.Season);
+        Add(ref hash, simulation.Climate.ClimateIndexMilli);
+        Add(ref hash, simulation.Climate.BiomassModifierMilli);
         foreach (var animal in simulation.Entities.Items)
         {
             Add(ref hash, animal.Id);
@@ -15,6 +18,17 @@ public static class SimulationStateHasher
             Add(ref hash, animal.Energy);
             Add(ref hash, animal.Health);
             Add(ref hash, animal.AgeTicks);
+            Add(ref hash, animal.Generation);
+            Add(ref hash, animal.ParentAId);
+            Add(ref hash, animal.ParentBId);
+            Add(ref hash, animal.GroupId);
+            Add(ref hash, animal.ReproductionCooldown);
+            Add(ref hash, (int)animal.Sex);
+            Add(ref hash, animal.Traits.Speed);
+            Add(ref hash, animal.Traits.Metabolism);
+            Add(ref hash, animal.Traits.Vision);
+            Add(ref hash, animal.Traits.Size);
+            Add(ref hash, animal.Traits.Fertility);
             Add(ref hash, animal.IsAlive ? 1 : 0);
             Add(ref hash, animal.CarcassCreated ? 1 : 0);
         }

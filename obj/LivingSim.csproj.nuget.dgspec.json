@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\LivingSim.csproj": {}
+    "C:\\Users\\Hp home\\Documents\\GitHub\\LivingSim-Eco\\LivingSim.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\LivingSim.csproj": {
+    "C:\\Users\\Hp home\\Documents\\GitHub\\LivingSim-Eco\\LivingSim.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\LivingSim.csproj",
+        "projectUniqueName": "C:\\Users\\Hp home\\Documents\\GitHub\\LivingSim-Eco\\LivingSim.csproj",
         "projectName": "LivingSim",
-        "projectPath": "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\LivingSim.csproj",
-        "packagesPath": "C:\\Users\\Favour\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Favour\\Documents\\Github\\LivingSim Eco\\obj\\",
+        "projectPath": "C:\\Users\\Hp home\\Documents\\GitHub\\LivingSim-Eco\\LivingSim.csproj",
+        "packagesPath": "C:\\Users\\Hp home\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\Hp home\\Documents\\GitHub\\LivingSim-Eco\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\Favour\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\Hp home\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net10.0"
@@ -24,6 +24,7 @@
         },
         "frameworks": {
           "net10.0": {
+            "framework": "net10.0",
             "targetAlias": "net10.0",
             "projectReferences": {}
           }
@@ -38,10 +39,11 @@
           "auditLevel": "low",
           "auditMode": "all"
         },
-        "SdkAnalysisLevel": "10.0.100"
+        "SdkAnalysisLevel": "10.0.400"
       },
       "frameworks": {
         "net10.0": {
+          "framework": "net10.0",
           "targetAlias": "net10.0",
           "imports": [
             "net461",
@@ -59,7 +61,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.400/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.CSharp": "(,4.7.32767]",
             "Microsoft.VisualBasic": "(,10.4.32767]",
