@@ -24,6 +24,12 @@ if (options.ClimateGate)
     }
     return;
 }
+if (options.GeographyGate)
+{
+    var geography = GeographyGateRunner.Run(options.Settings.Seed, options.Ticks);
+    Console.WriteLine($"gate=11 seed={geography.Seed} ticks={geography.Ticks} west={geography.West.Population} births={geography.West.Births} generation={geography.West.MaximumGeneration} speed={geography.West.MeanSpeed:F2} metabolism={geography.West.MeanMetabolism:F2} east={geography.East.Population} births={geography.East.Births} generation={geography.East.MaximumGeneration} speed={geography.East.MeanSpeed:F2} metabolism={geography.East.MeanMetabolism:F2} predators={geography.FinalPredators} speed-difference={geography.SpeedDifference:F2} metabolism-difference={geography.MetabolismDifference:F2} seconds={geography.ElapsedSeconds:F2} state={geography.StateHash}");
+    return;
+}
 static void PrintTraits(string stage, TraitDistribution traits)
 {
     static string Values(IReadOnlyDictionary<int, int> values) => string.Join(',', values.OrderBy(entry => entry.Key).Select(entry => $"{entry.Key}:{entry.Value}"));
@@ -111,7 +117,7 @@ if (options.SavePath is not null)
     Console.WriteLine($"saved={Path.GetFullPath(options.SavePath)}");
 }
 
-internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate, bool PreyGate, bool PredatorGate, bool PredatorReproductionGate, bool FoodWebGate, bool EvolutionGate, bool ClimateGate)
+internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate, bool PreyGate, bool PredatorGate, bool PredatorReproductionGate, bool FoodWebGate, bool EvolutionGate, bool ClimateGate, bool GeographyGate)
 {
     public static HeadlessOptions Parse(string[] args)
     {
@@ -134,6 +140,7 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
         var foodWebGate = false;
         var evolutionGate = false;
         var climateGate = false;
+        var geographyGate = false;
         string? savePath = null;
         string? loadPath = null;
         string? benchmark = null;
@@ -188,6 +195,12 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
                 index++;
                 continue;
             }
+            if (args[index] == "--geography-gate")
+            {
+                geographyGate = true;
+                index++;
+                continue;
+            }
 
             if (index + 1 >= args.Length)
             {
@@ -226,6 +239,6 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
             index += 2;
         }
 
-        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate, preyGate, predatorGate, predatorReproductionGate, foodWebGate, evolutionGate, climateGate);
+        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate, preyGate, predatorGate, predatorReproductionGate, foodWebGate, evolutionGate, climateGate, geographyGate);
     }
 }
