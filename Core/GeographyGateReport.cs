@@ -10,7 +10,18 @@ public readonly record struct RegionalSnapshot(
     double FinalMeanSpeed,
     double InitialMeanMetabolism,
     double FinalMeanMetabolism,
-    int HistorySamples);
+    int HistorySamples)
+{
+    public IReadOnlyList<RegionalHistorySample> History { get; init; } = Array.Empty<RegionalHistorySample>();
+}
+
+public readonly record struct RegionalHistorySample(
+    long Tick,
+    int Population,
+    int Predators,
+    double MeanSpeed,
+    double MeanMetabolism,
+    long PlantBiomass);
 
 public readonly record struct GeographyGateReport(
     int Seed,
@@ -32,6 +43,8 @@ public static class GeographyGateRunner
         var east = CreateRegion(seed + 1, predators: 0);
         var westInitial = CaptureTraits(west);
         var eastInitial = CaptureTraits(east);
+        var westHistory = new List<RegionalHistorySample>();
+        var eastHistory = new List<RegionalHistorySample>();
 
         var watch = Stopwatch.StartNew();
         for (var elapsed = 0; elapsed < ticks;)
@@ -42,11 +55,13 @@ public static class GeographyGateRunner
             elapsed += step;
             SimulationInvariants.Validate(west);
             SimulationInvariants.Validate(east);
+            westHistory.Add(CaptureHistory(west));
+            eastHistory.Add(CaptureHistory(east));
         }
 
         watch.Stop();
-        var westSnapshot = Capture(west, ticks, westInitial);
-        var eastSnapshot = Capture(east, ticks, eastInitial);
+        var westSnapshot = Capture(west, westInitial, westHistory);
+        var eastSnapshot = Capture(east, eastInitial, eastHistory);
         return new GeographyGateReport(seed, ticks, westSnapshot, eastSnapshot, west.Metrics.Predators, east.Metrics.Predators,
             Math.Abs(westSnapshot.FinalMeanSpeed - eastSnapshot.FinalMeanSpeed),
             Math.Abs(westSnapshot.FinalMeanMetabolism - eastSnapshot.FinalMeanMetabolism),
@@ -63,7 +78,10 @@ public static class GeographyGateRunner
         return simulation;
     }
 
-    private static RegionalSnapshot Capture(WorldSimulation simulation, int ticks, (double Speed, double Metabolism) initial)
+    private static RegionalSnapshot Capture(
+        WorldSimulation simulation,
+        (int Population, double Speed, double Metabolism) initial,
+        IReadOnlyList<RegionalHistorySample> history)
     {
         var population = 0;
         var births = 0;
@@ -77,12 +95,28 @@ public static class GeographyGateRunner
         }
 
         return population == 0
-            ? new RegionalSnapshot(0, births, generation, initial.Speed, 0, initial.Metabolism, 0, Math.Max(1, ticks / 120))
+            ? new RegionalSnapshot(0, births, generation, initial.Speed, 0, initial.Metabolism, 0, history.Count) { History = history }
             : new RegionalSnapshot(population, births, generation, initial.Speed, CaptureTraits(simulation).Speed,
-                initial.Metabolism, CaptureTraits(simulation).Metabolism, Math.Max(1, ticks / 120));
+                initial.Metabolism, CaptureTraits(simulation).Metabolism, history.Count) { History = history };
     }
 
-    private static (double Speed, double Metabolism) CaptureTraits(WorldSimulation simulation)
+    private static RegionalHistorySample CaptureHistory(WorldSimulation simulation)
+    {
+        var traits = CaptureTraits(simulation);
+        long biomass = 0;
+        foreach (var cell in simulation.World.Cells)
+            biomass += cell.PlantBiomass;
+
+        return new RegionalHistorySample(
+            simulation.Tick,
+            traits.Population,
+            simulation.Metrics.Predators,
+            traits.Speed,
+            traits.Metabolism,
+            biomass);
+    }
+
+    private static (int Population, double Speed, double Metabolism) CaptureTraits(WorldSimulation simulation)
     {
         var population = 0;
         var speed = 0;
@@ -95,6 +129,6 @@ public static class GeographyGateRunner
             metabolism += animal.Traits.Metabolism;
         }
 
-        return population == 0 ? (0, 0) : ((double)speed / population, (double)metabolism / population);
+        return population == 0 ? (0, 0, 0) : (population, (double)speed / population, (double)metabolism / population);
     }
 }

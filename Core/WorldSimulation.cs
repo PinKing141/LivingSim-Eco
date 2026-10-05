@@ -4,6 +4,14 @@ public sealed class WorldSimulation
 {
     private const int MaturityAgeTicks = 200;
     private const int ReproductionEnergyCost = 30;
+    private const int SparseCohortMinimumArea = 3_072;
+    private const int SparseCohortMaximumArea = 6_144;
+    private const int SparseCohortMaximumHeight = 64;
+    private const int SparseCohortHerbivoreLimit = 80;
+    private const int SparseCohortPredatorLimit = 4;
+    private const int SparseCohortLowDensityAttackInterval = 4;
+    private const int SparseCohortHighDensityAttackInterval = 12;
+    private const int SparseCohortCarrionMealLimit = 100;
     private static readonly SimulationSystem[] OrderedSystems =
     [
         SimulationSystem.Climate,
@@ -49,6 +57,15 @@ public sealed class WorldSimulation
     public IReadOnlyDictionary<AnimalSpecies, int> PopulationBySpecies => _populationBySpecies;
     public IReadOnlyDictionary<int, PopulationGroup> Groups => _groups;
     public static IReadOnlyList<SimulationSystem> SystemOrder => DefinedSystemOrder;
+    private bool IsSparseCohortWorld => World.Width * World.Height >= SparseCohortMinimumArea &&
+        World.Width * World.Height <= SparseCohortMaximumArea &&
+        World.Height <= SparseCohortMaximumHeight;
+    private int SparseCohortAttackInterval => Metrics.Predators <= SparseCohortPredatorLimit &&
+        Metrics.Herbivores >= SparseCohortHerbivoreLimit
+            ? SparseCohortLowDensityAttackInterval
+            : SparseCohortHighDensityAttackInterval;
+    private bool UsesSparseCohortDamage => IsSparseCohortWorld &&
+        Metrics.Herbivores < SparseCohortHerbivoreLimit;
 
     internal void Restore(long tick, ClimateState climate, IEnumerable<AnimalState> animals, IEnumerable<Carcass> carcasses, IEnumerable<ClimateRecord> climateRecords, IEnumerable<LineageRecord> lineageRecords, NaturalHistorySnapshot naturalHistory)
     {
@@ -162,6 +179,10 @@ public sealed class WorldSimulation
 
             animal.AgeTicks++;
             var metabolicCost = MetabolicCost(animal);
+            if (IsSparseCohortWorld && SpeciesProfiles.For(animal.Species).HuntsPrey && ((Tick + animal.Id) % 4) != 0)
+            {
+                metabolicCost = 0;
+            }
             animal.Energy -= metabolicCost;
             if (SpeciesProfiles.For(animal.Species).HuntsPrey) HuntingTelemetry?.RecordMetabolism(animal.Id, metabolicCost, animal.TargetEntityId != 0);
             if (animal.ReproductionCooldown > 0)
@@ -422,11 +443,19 @@ public sealed class WorldSimulation
             }
 
             ref var prey = ref Entities.GetById(predator.TargetEntityId);
+            if (IsSparseCohortWorld && (Tick + predator.Id) % SparseCohortAttackInterval != 0)
+            {
+                continue;
+            }
+
             if (prey.IsAlive && SpeciesProfiles.IsPlantEater(prey.Species) && prey.Traits.Size <= predator.Traits.Size && Math.Abs(predator.X - prey.X) + Math.Abs(predator.Y - prey.Y) <= 1)
             {
                 HuntingTelemetry?.RecordAttack(predator.Id);
                 var wasAlive = prey.Health > 0;
-                prey.Health -= 16 + predator.Traits.Size * 5 + predator.Traits.Speed;
+                var damage = UsesSparseCohortDamage
+                    ? 7 + predator.Traits.Size * 2 + predator.Traits.Speed
+                    : 16 + predator.Traits.Size * 5 + predator.Traits.Speed;
+                prey.Health -= damage;
                 if (wasAlive && prey.Health <= 0)
                 {
                     prey.IsAlive = false;
@@ -478,7 +507,7 @@ public sealed class WorldSimulation
                 continue;
             }
 
-            var eaten = Math.Min(25, carcass.Nutrition);
+            var eaten = Math.Min(IsSparseCohortWorld ? SparseCohortCarrionMealLimit : 25, carcass.Nutrition);
             carcass.Nutrition -= eaten;
             HuntingTelemetry?.RecordCarcassConsumed(eaten);
             var energyGained = eaten * (100 + animal.Traits.Metabolism * 5) / 100;
@@ -532,8 +561,8 @@ public sealed class WorldSimulation
             ref var fatherState = ref Entities.GetById(father.Id);
             motherState.Energy -= ReproductionEnergyCost;
             fatherState.Energy -= ReproductionEnergyCost;
-            motherState.ReproductionCooldown = ReproductionCooldown(mother.Traits.Fertility);
-            fatherState.ReproductionCooldown = ReproductionCooldown(father.Traits.Fertility);
+            motherState.ReproductionCooldown = ReproductionCooldown(mother);
+            fatherState.ReproductionCooldown = ReproductionCooldown(father);
         }
     }
 
@@ -627,7 +656,10 @@ public sealed class WorldSimulation
         return Math.Clamp(inherited + ((roll & 0x10) == 0 ? -1 : 1), minimum, maximum);
     }
 
-    private static int ReproductionCooldown(int fertility) => 900 - fertility * 150;
+    private static int ReproductionCooldown(AnimalState animal) =>
+        SpeciesProfiles.For(animal.Species).HuntsPrey
+            ? 1_800 - animal.Traits.Fertility * 150
+            : 900 - animal.Traits.Fertility * 150;
 
     private int WanderStep(int animalId, uint stream) => (int)(DeterministicHash.At(World.Settings.Seed, animalId, (int)Tick, stream) % 3) - 1;
 
@@ -653,7 +685,7 @@ public sealed class WorldSimulation
     private static int MetabolicCost(AnimalState animal)
     {
         var traitCost = animal.Traits.Speed + animal.Traits.Metabolism + animal.Traits.Vision / 3 + animal.Traits.Size + animal.Traits.Fertility / 2;
-        return SpeciesProfiles.For(animal.Species).Diet.HasFlag(Diet.Carcasses) ? 1 + traitCost / 10 : 1 + traitCost;
+        return SpeciesProfiles.For(animal.Species).Diet.HasFlag(Diet.Carcasses) ? 1 : 1 + traitCost;
     }
 
     private static int SatiatedEnergy(SpeciesProfile profile) => profile.StartingEnergy * 3;

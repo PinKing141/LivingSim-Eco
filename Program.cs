@@ -2,6 +2,12 @@ using LivingSim.Core;
 using LivingSim.Observation;
 
 var options = HeadlessOptions.Parse(args);
+if (options.FoundationExitGate)
+{
+    var foundation = FoundationExitGateRunner.Run(options.Ticks);
+    Console.WriteLine($"gate=16 policy=controlled passed={foundation.Passed} herbivore-survivors={foundation.Diversity.HerbivoreSurvivors}/{foundation.Diversity.Seeds.Count} predator-survivors={foundation.Diversity.PredatorSurvivors}/{foundation.Diversity.Seeds.Count} longrun-herbivores={foundation.LongRun.FinalHerbivores} longrun-predators={foundation.LongRun.FinalPredators} predator-extinct={foundation.LongRun.PredatorExtinctionTick?.ToString() ?? "never"} save-reload={foundation.SaveReload.HashesMatch} scale-deterministic={foundation.Scale.StateHashesMatch}");
+    return;
+}
 if (options.EvolutionGate)
 {
     foreach (var mode in new[] { ClimateMode.MildConstant, ClimateMode.DroughtConstant, ClimateMode.AbundanceConstant })
@@ -28,6 +34,38 @@ if (options.GeographyGate)
 {
     var geography = GeographyGateRunner.Run(options.Settings.Seed, options.Ticks);
     Console.WriteLine($"gate=11 seed={geography.Seed} ticks={geography.Ticks} west={geography.West.Population} births={geography.West.Births} generation={geography.West.MaximumGeneration} speed={geography.West.InitialMeanSpeed:F2}->{geography.West.FinalMeanSpeed:F2} metabolism={geography.West.InitialMeanMetabolism:F2}->{geography.West.FinalMeanMetabolism:F2} history={geography.West.HistorySamples} east={geography.East.Population} births={geography.East.Births} generation={geography.East.MaximumGeneration} speed={geography.East.InitialMeanSpeed:F2}->{geography.East.FinalMeanSpeed:F2} metabolism={geography.East.InitialMeanMetabolism:F2}->{geography.East.FinalMeanMetabolism:F2} history={geography.East.HistorySamples} predators={geography.WestPredators}/{geography.EastPredators} speed-difference={geography.SpeedDifference:F2} metabolism-difference={geography.MetabolismDifference:F2} seconds={geography.ElapsedSeconds:F2} state={geography.StateHash}");
+    return;
+}
+if (options.LongRunGate)
+{
+    var longRun = LongRunGateRunner.Run(options.Settings.Seed, options.Ticks, options.Herbivores, options.Predators,
+        options.Settings.Width, options.Settings.Height);
+    Console.WriteLine($"gate=12 seed={longRun.Seed} ticks={longRun.Ticks} herbivores={longRun.InitialHerbivores}->{longRun.FinalHerbivores} range={longRun.LowestHerbivores}-{longRun.HighestHerbivores} predators={longRun.InitialPredators}->{longRun.FinalPredators} extinct={longRun.PredatorExtinctionTick?.ToString() ?? "never"} generation={longRun.MaximumGeneration} reversals={longRun.PopulationReversals} checkpoints={longRun.Checkpoints.Count} seconds={longRun.ElapsedSeconds:F2} state={longRun.StateHash}");
+    foreach (var checkpoint in longRun.Checkpoints)
+        Console.WriteLine($"checkpoint tick={checkpoint.Tick} herbivores={checkpoint.Herbivores} predators={checkpoint.Predators} generation={checkpoint.MaximumGeneration} biomass={checkpoint.PlantBiomass}");
+    return;
+}
+if (options.DiversityGate)
+{
+    var diversity = DiversityGateRunner.Run(options.Ticks);
+    Console.WriteLine($"gate=13 ticks={diversity.Ticks} herbivore-survivors={diversity.HerbivoreSurvivors}/{diversity.Seeds.Count} predator-survivors={diversity.PredatorSurvivors}/{diversity.Seeds.Count} seconds={diversity.ElapsedSeconds:F2}");
+    foreach (var result in diversity.Seeds)
+        Console.WriteLine($"seed={result.Seed} herbivores={result.InitialHerbivores}->{result.FinalHerbivores} low={result.LowestHerbivores} predators={result.InitialPredators}->{result.FinalPredators} extinct={result.PredatorExtinctionTick?.ToString() ?? "never"} generation={result.MaximumGeneration} state={result.StateHash}");
+    return;
+}
+if (options.SaveReloadGate)
+{
+    var saveReload = SaveReloadGateRunner.Run(options.Settings.Seed, options.Ticks, options.Ticks / 2,
+        options.Herbivores, options.Predators, options.Settings.Width, options.Settings.Height);
+    Console.WriteLine($"gate=14 seed={saveReload.Seed} ticks={saveReload.TotalTicks} save-tick={saveReload.SaveTick} herbivores={saveReload.InitialHerbivores}->{saveReload.UninterruptedFinalHerbivores}/{saveReload.ReloadedFinalHerbivores} predators={saveReload.UninterruptedFinalPredators}/{saveReload.ReloadedFinalPredators} uninterrupted={saveReload.UninterruptedStateHash} reloaded={saveReload.ReloadedStateHash} match={saveReload.HashesMatch} seconds={saveReload.ElapsedSeconds:F2}");
+    return;
+}
+if (options.ScaleGate)
+{
+    var scale = ScaleGateRunner.Run("density", options.Ticks);
+    Console.WriteLine($"gate=15 scenario={scale.Scenario} ticks={scale.Ticks} warmup={scale.WarmupRuns} runs={scale.Samples.Count} created={scale.Samples[0].AnimalsCreated} living={scale.Samples[0].LivingAnimals} elapsed-ms={scale.MinimumElapsed.TotalMilliseconds:F0}/{scale.MedianElapsed.TotalMilliseconds:F0}/{scale.MaximumElapsed.TotalMilliseconds:F0} allocated-mb={scale.MinimumAllocatedBytes / 1_048_576.0:F1}/{scale.MaximumAllocatedBytes / 1_048_576.0:F1} deterministic={scale.StateHashesMatch} seconds={scale.ElapsedSeconds:F2}");
+    foreach (var sample in scale.Samples)
+        Console.WriteLine($"sample run={sample.Run} elapsed-ms={sample.Elapsed.TotalMilliseconds:F0} allocated-mb={sample.AllocatedBytes / 1_048_576.0:F1} created={sample.AnimalsCreated} living={sample.LivingAnimals} state={sample.StateHash}");
     return;
 }
 static void PrintTraits(string stage, TraitDistribution traits)
@@ -117,7 +155,7 @@ if (options.SavePath is not null)
     Console.WriteLine($"saved={Path.GetFullPath(options.SavePath)}");
 }
 
-internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate, bool PreyGate, bool PredatorGate, bool PredatorReproductionGate, bool FoodWebGate, bool EvolutionGate, bool ClimateGate, bool GeographyGate)
+internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int Herbivores, int Predators, int LargeHerbivores, int SmallHerbivores, int ApexPredators, int Omnivores, int Scavengers, bool Observe, string? SavePath, string? LoadPath, string? Benchmark, bool FoundationGate, bool FoundationExitGate, bool PreyGate, bool PredatorGate, bool PredatorReproductionGate, bool FoodWebGate, bool EvolutionGate, bool ClimateGate, bool GeographyGate, bool LongRunGate, bool DiversityGate, bool SaveReloadGate, bool ScaleGate)
 {
     public static HeadlessOptions Parse(string[] args)
     {
@@ -134,6 +172,7 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
         var scavengers = 0;
         var observe = false;
         var foundationGate = false;
+        var foundationExitGate = false;
         var preyGate = false;
         var predatorGate = false;
         var predatorReproductionGate = false;
@@ -141,6 +180,10 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
         var evolutionGate = false;
         var climateGate = false;
         var geographyGate = false;
+        var longRunGate = false;
+        var diversityGate = false;
+        var saveReloadGate = false;
+        var scaleGate = false;
         string? savePath = null;
         string? loadPath = null;
         string? benchmark = null;
@@ -156,6 +199,12 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
             if (args[index] == "--foundation-gate")
             {
                 foundationGate = true;
+                index++;
+                continue;
+            }
+            if (args[index] == "--foundation-exit-gate")
+            {
+                foundationExitGate = true;
                 index++;
                 continue;
             }
@@ -201,6 +250,30 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
                 index++;
                 continue;
             }
+            if (args[index] == "--longrun-gate")
+            {
+                longRunGate = true;
+                index++;
+                continue;
+            }
+            if (args[index] == "--diversity-gate")
+            {
+                diversityGate = true;
+                index++;
+                continue;
+            }
+            if (args[index] == "--save-reload-gate")
+            {
+                saveReloadGate = true;
+                index++;
+                continue;
+            }
+            if (args[index] == "--scale-gate")
+            {
+                scaleGate = true;
+                index++;
+                continue;
+            }
 
             if (index + 1 >= args.Length)
             {
@@ -239,6 +312,6 @@ internal sealed record HeadlessOptions(WorldSettings Settings, int Ticks, int He
             index += 2;
         }
 
-        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate, preyGate, predatorGate, predatorReproductionGate, foodWebGate, evolutionGate, climateGate, geographyGate);
+        return new HeadlessOptions(new WorldSettings(seed, width, height), ticks, herbivores, predators, largeHerbivores, smallHerbivores, apexPredators, omnivores, scavengers, observe, savePath, loadPath, benchmark, foundationGate, foundationExitGate, preyGate, predatorGate, predatorReproductionGate, foodWebGate, evolutionGate, climateGate, geographyGate, longRunGate, diversityGate, saveReloadGate, scaleGate);
     }
 }

@@ -39,4 +39,17 @@ public sealed class ReleaseBenchmarkTests
         Assert.NotEmpty(simulation.ClimateHistory.Records);
         Assert.NotEmpty(SimulationStateHasher.Hash(simulation));
     }
+
+    [Fact]
+    public void ScaleGate_ProducesDeterministicRepeatedSamples()
+    {
+        var report = ScaleGateRunner.Run(ticks: 25, warmupRuns: 1, measuredRuns: 2);
+
+        Assert.Equal("density", report.Scenario);
+        Assert.Equal(2, report.Samples.Count);
+        Assert.True(report.StateHashesMatch);
+        Assert.All(report.Samples, sample => Assert.True(sample.AnimalsCreated > 1_000));
+        Assert.True(report.MinimumElapsed <= report.MedianElapsed);
+        Assert.True(report.MedianElapsed <= report.MaximumElapsed);
+    }
 }
