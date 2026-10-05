@@ -232,7 +232,8 @@ public sealed class WorldSimulation
                     Math.Abs(previousPrey.X - animal.X) + Math.Abs(previousPrey.Y - animal.Y) <= animal.Traits.Vision * 3;
                 animal.TargetEntityId = keepCurrentPrey
                     ? previousTargetId
-                    : SpatialIndex.FindNearestPlantEater(Entities, animal.X, animal.Y, animal.Traits.Vision * 2, animal.Traits.Size, animal.Id);
+                    : SpatialIndex.FindNearestPlantEater(Entities, animal.X, animal.Y,
+                        animal.Traits.Vision * (Metrics.Predators <= 4 ? 4 : 2), animal.Traits.Size, animal.Id);
                 if (animal.TargetEntityId != 0)
                 {
                     var prey = Entities.GetById(animal.TargetEntityId);
@@ -544,23 +545,24 @@ public sealed class WorldSimulation
         child.ParentBId = father.Id;
         child.GroupId = mother.GroupId;
         child.Traits = InheritTraits(mother.Traits, father.Traits, childId);
-        child.Energy = SpeciesProfiles.For(mother.Species).HuntsPrey ? 240 : 60;
+        child.Energy = SpeciesProfiles.For(mother.Species).StartingEnergy;
         child.Health = SpeciesProfiles.For(mother.Species).StartingHealth;
         Lineages.RegisterBirth(child, Tick);
     }
 
     private bool CanReproduce(AnimalState animal)
     {
+        var profile = SpeciesProfiles.For(animal.Species);
+        var minimumReproductionEnergy = profile.HuntsPrey ? SatiatedEnergy(profile) : ReproductionEnergyCost + 50;
         if (!animal.IsAlive ||
             animal.AgeTicks < MaturityAgeTicks ||
             animal.Health <= 0 ||
-            animal.Energy < ReproductionEnergyCost + 50 ||
+            animal.Energy < minimumReproductionEnergy ||
             animal.ReproductionCooldown != 0)
         {
             return false;
         }
 
-        var profile = SpeciesProfiles.For(animal.Species);
         if (!profile.Diet.HasFlag(Diet.Plants))
         {
             return true;
@@ -648,7 +650,7 @@ public sealed class WorldSimulation
     private static int MetabolicCost(AnimalState animal)
     {
         var traitCost = animal.Traits.Speed + animal.Traits.Metabolism + animal.Traits.Vision / 3 + animal.Traits.Size + animal.Traits.Fertility / 2;
-        return SpeciesProfiles.For(animal.Species).Diet.HasFlag(Diet.Carcasses) ? 1 + traitCost / 8 : 1 + traitCost;
+        return SpeciesProfiles.For(animal.Species).Diet.HasFlag(Diet.Carcasses) ? 1 + traitCost / 10 : 1 + traitCost;
     }
 
     private static int SatiatedEnergy(SpeciesProfile profile) => profile.StartingEnergy * 3;

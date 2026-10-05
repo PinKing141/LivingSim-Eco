@@ -78,12 +78,12 @@ public sealed class ReproductionTests
         ref var female = ref simulation.Entities.GetById(femaleId);
         female.Sex = AnimalSex.Female;
         female.AgeTicks = 300;
-        female.Energy = 1_000;
+        female.Energy = 2_000;
         female.Traits = new AnimalTraits { Speed = 2, Metabolism = 1, Vision = 6, Size = 3, Fertility = 1 };
         ref var male = ref simulation.Entities.GetById(maleId);
         male.Sex = AnimalSex.Male;
         male.AgeTicks = 300;
-        male.Energy = 1_000;
+        male.Energy = 2_000;
         male.Traits = female.Traits;
 
         simulation.Advance(5);
