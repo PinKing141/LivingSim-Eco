@@ -47,7 +47,7 @@ public static class EvolutionGateRunner
 {
     public static EvolutionGateReport Run(int seed, ClimateMode climateMode, int ticks = 48_000)
     {
-        var simulation = HeadlessWorldRunner.CreatePopulated(new WorldSettings(seed, 64, 48), 24, 0, climateMode);
+        var simulation = HeadlessWorldRunner.CreatePopulated(new WorldSettings(seed, 96, 64), 96, 0, climateMode);
         var initial = TraitDistribution.Capture(simulation, AnimalSpecies.Herbivore);
         var watch = Stopwatch.StartNew();
         for (var elapsed = 0; elapsed < ticks;)

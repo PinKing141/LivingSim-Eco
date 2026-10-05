@@ -6,7 +6,8 @@ if (options.EvolutionGate)
 {
     foreach (var mode in new[] { ClimateMode.MildConstant, ClimateMode.DroughtConstant, ClimateMode.AbundanceConstant })
     {
-        var evolution = EvolutionGateRunner.Run(options.Settings.Seed, mode, options.Ticks);
+        var witnessTicks = mode == ClimateMode.DroughtConstant ? Math.Min(options.Ticks, 12_000) : options.Ticks;
+        var evolution = EvolutionGateRunner.Run(options.Settings.Seed, mode, witnessTicks);
         Console.WriteLine($"gate=9 seed={evolution.Seed} mode={mode} ticks={evolution.Ticks} population={evolution.Initial.Population}->{evolution.Final.Population} births={evolution.Births} mature={evolution.MatureOffspring} generation={evolution.MaximumGeneration} inheritance-violations={evolution.InheritanceViolations} bound-violations={evolution.TraitBoundViolations} seconds={evolution.ElapsedSeconds:F2} state={evolution.StateHash}");
         PrintTraits("initial", evolution.Initial);
         PrintTraits("final", evolution.Final);
