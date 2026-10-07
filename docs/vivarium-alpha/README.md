@@ -14,6 +14,10 @@ This is not Slice 12. It is a separate roadmap with a separate purpose, quality 
 
 ---
 
+## Master roadmap
+
+- [Vivarium Alpha Master Roadmap](ROADMAP.md) — the high-level progression from Foundation Validation through Alpha, Ecological Breadth, Beta, and 1.0.
+
 ## Entry criteria
 
 Do not start implementation of Vivarium Alpha until all are true:
